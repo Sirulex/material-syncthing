@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Syncthing</string>
+
+    <!-- Service states -->
+    <string name="state_stopped">Durduruldu</string>
+    <string name="state_starting">Başlatılıyor…</string>
+    <string name="state_running">Çalışıyor</string>
+    <string name="state_crashed">Çöktü</string>
+    <string name="state_paused">Duraklatıldı</string>
+
+    <!-- Tabs -->
+    <string name="tab_folders">Klasörler</string>
+    <string name="tab_devices">Cihazlar</string>
+
+    <!-- Folders -->
+    <string name="no_folders">Klasör yok</string>
+    <string name="no_folders_description">Cihazlar arasında dosya senkronizasyonuna başlamak için klasör ekle.</string>
+    <string name="add_folder">Klasör Ekle</string>
+    <string name="folder_type_send_receive">Gönder ve Al</string>
+    <string name="folder_type_send_only">Sadece Gönder</string>
+    <string name="folder_type_receive_only">Sadece Al</string>
+    <string name="folder_type_receive_encrypted">Şifreli Al</string>
+
+    <!-- Devices -->
+    <string name="no_devices">Cihaz yok</string>
+    <string name="no_devices_description">Senkronizasyona başlamak için uzak bir cihaz ekle.</string>
+    <string name="add_device">Cihaz Ekle</string>
+    <string name="scan_qr">QR Kodu Tara</string>
+    <string name="enter_device_id">Cihaz ID Gir</string>
+    <string name="connected">Bağlı</string>
+    <string name="disconnected">Bağlantı kesildi</string>
+
+    <!-- Settings -->
+    <string name="settings">Ayarlar</string>
+    <string name="run_conditions">Çalışma Koşulları</string>
+    <string name="start_on_boot">Açılışta başlat</string>
+    <string name="start_on_boot_desc">Cihaz açıldığında Syncthing\'i başlat</string>
+    <string name="wifi_only">Sadece Wi-Fi</string>
+    <string name="wifi_only_desc">Yalnızca Wi-Fi\'ye bağlıyken senkronize et</string>
+    <string name="allow_metered">Sayaçlı Wi-Fi\'ye izin ver</string>
+    <string name="allow_metered_desc">Sayaçlı Wi-Fi ağlarında senkronize et</string>
+    <string name="charging_only">Sadece şarj olurken</string>
+    <string name="charging_only_desc">Yalnızca şarj olurken senkronize et</string>
+    <string name="respect_battery_saver">Pil tasarrufuna uy</string>
+    <string name="respect_battery_saver_desc">Pil tasarrufu etkinken senkronizasyonu duraklat</string>
+    <string name="about">Hakkında</string>
+
+    <!-- Actions -->
+    <string name="rescan">Yeniden tara</string>
+    <string name="pause">Duraklat</string>
+    <string name="resume">Devam et</string>
+    <string name="copy_id">ID\'yi kopyala</string>
+    <string name="close">Kapat</string>
+    <string name="back">Geri</string>
+
+    <!-- QR -->
+    <string name="device_id">Cihaz ID</string>
+    <string name="qr_content_description">Cihaz ID için QR kodu</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_persistent">Syncthing Servisi</string>
+    <string name="notification_channel_info">Syncthing Bildirimleri</string>
+    <string name="syncthing_crashed">Syncthing çöktü</string>
+
+    <!-- App shortcuts -->
+    <string name="shortcut_rescan_all">Tümünü yeniden tara</string>
+    <string name="shortcut_rescan_all_long">Tüm klasörleri yeniden tara</string>
+    <string name="shortcut_pause">Duraklat</string>
+    <string name="shortcut_pause_long">Syncthing\'i duraklat</string>
+    <string name="shortcut_errors">Hatalar</string>
+    <string name="shortcut_errors_long">Hata merkezini aç</string>
+    <string name="shortcut_insights">Analizler</string>
+    <string name="shortcut_insights_long">Analizleri aç</string>
+
+    <!-- Widget -->
+    <string name="widget_description">Syncthing durumu, duraklat / devam, tümünü yeniden tara</string>
+</resources>

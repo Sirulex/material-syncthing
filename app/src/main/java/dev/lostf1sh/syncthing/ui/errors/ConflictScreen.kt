@@ -163,7 +163,7 @@ private fun ConflictCard(
                 ) {
                     Icon(Icons.Default.PhoneAndroid, null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Local")
+                    Text("Keep current")
                 }
                 FilledTonalButton(
                     onClick = onKeepRemote,
@@ -171,7 +171,7 @@ private fun ConflictCard(
                 ) {
                     Icon(Icons.Default.Computer, null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Remote")
+                    Text("Keep conflict")
                 }
                 OutlinedButton(
                     onClick = onDuplicate,
@@ -179,7 +179,7 @@ private fun ConflictCard(
                 ) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Both")
+                    Text("Keep both")
                 }
             }
         }

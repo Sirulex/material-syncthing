@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="rescan_all"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_rescan"
+        android:shortcutShortLabel="@string/shortcut_rescan_all"
+        android:shortcutLongLabel="@string/shortcut_rescan_all_long">
+        <intent
+            android:action="dev.lostf1sh.syncthing.shortcut.RESCAN_ALL"
+            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="pause_all"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_pause"
+        android:shortcutShortLabel="@string/shortcut_pause"
+        android:shortcutLongLabel="@string/shortcut_pause_long">
+        <intent
+            android:action="dev.lostf1sh.syncthing.shortcut.PAUSE"
+            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="error_center"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_errors"
+        android:shortcutShortLabel="@string/shortcut_errors"
+        android:shortcutLongLabel="@string/shortcut_errors_long">
+        <intent
+            android:action="dev.lostf1sh.syncthing.shortcut.ERROR_CENTER"
+            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="insights"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_insights"
+        android:shortcutShortLabel="@string/shortcut_insights"
+        android:shortcutLongLabel="@string/shortcut_insights_long">
+        <intent
+            android:action="dev.lostf1sh.syncthing.shortcut.INSIGHTS"
+            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+    </shortcut>
+
+</shortcuts>

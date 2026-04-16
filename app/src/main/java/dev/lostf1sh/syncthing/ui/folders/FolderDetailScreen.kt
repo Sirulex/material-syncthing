@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -61,6 +62,7 @@ fun FolderDetailScreen(
     onResume: ((String) -> Unit)? = null,
     onRescan: ((String) -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
+    onBrowse: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -158,6 +160,19 @@ fun FolderDetailScreen(
             }
 
             Spacer(Modifier.height(16.dp))
+
+            if (onBrowse != null) {
+                FilledTonalButton(
+                    onClick = { onBrowse(folder.id) },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.FolderOpen, null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Browse files")
+                }
+                Spacer(Modifier.height(16.dp))
+            }
 
             ListItem(
                 headlineContent = { Text("Folder ID") },

@@ -6,7 +6,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.BatteryManager
 import android.os.PowerManager
 import android.util.Log
@@ -108,12 +107,14 @@ class SyncConstraints(private val context: Context) {
             }
         }
 
-        val request = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        cm.registerNetworkCallback(request, callback)
+        // Listen to the DEFAULT network only. A broad INTERNET-capability callback
+        // races against every qualifying network (Wi-Fi + LTE + IMS on phones
+        // with mobile data), and whichever emits last wins — that previously
+        // misreported isWifi=false even on Wi-Fi, tripping "Wi-Fi required".
+        cm.registerDefaultNetworkCallback(callback)
 
-        // Emit initial state
+        // Seed an initial state from the current default, since the first
+        // callback is asynchronous.
         val activeNetwork = cm.activeNetwork
         val activeCaps = activeNetwork?.let { cm.getNetworkCapabilities(it) }
         send(

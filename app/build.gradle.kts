@@ -69,6 +69,8 @@ dependencies {
     implementation(libs.material3)
     implementation(libs.material.icons.extended)
     implementation(libs.zxing.core)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

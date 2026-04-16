@@ -94,7 +94,68 @@ class NotificationController(private val context: Context) {
             builder.setContentIntent(pendingOpen)
         }
 
+        addStateActions(builder, state)
+
         return builder.build()
+    }
+
+    private fun addStateActions(builder: NotificationCompat.Builder, state: RunState) {
+        when (state) {
+            is RunState.Running -> {
+                builder.addAction(
+                    android.R.drawable.ic_popup_sync,
+                    "Rescan all",
+                    serviceAction(SyncthingService.ACTION_RESCAN_ALL, 1),
+                )
+                builder.addAction(
+                    android.R.drawable.ic_media_pause,
+                    "Pause",
+                    serviceAction(SyncthingService.ACTION_PAUSE, 2),
+                )
+                builder.addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Stop",
+                    serviceAction(SyncthingService.ACTION_STOP, 3),
+                )
+            }
+            is RunState.Paused -> {
+                builder.addAction(
+                    android.R.drawable.ic_media_play,
+                    "Resume",
+                    serviceAction(SyncthingService.ACTION_START, 4),
+                )
+                builder.addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Stop",
+                    serviceAction(SyncthingService.ACTION_STOP, 5),
+                )
+            }
+            is RunState.Crashed,
+            is RunState.Stopped -> {
+                builder.addAction(
+                    android.R.drawable.ic_media_play,
+                    "Start",
+                    serviceAction(SyncthingService.ACTION_START, 6),
+                )
+            }
+            is RunState.Starting -> {
+                builder.addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Stop",
+                    serviceAction(SyncthingService.ACTION_STOP, 7),
+                )
+            }
+        }
+    }
+
+    private fun serviceAction(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(context, SyncthingService::class.java).apply { this.action = action }
+        return PendingIntent.getService(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
     }
 
     fun showCrashedNotification(exitCode: Int, reason: String) {

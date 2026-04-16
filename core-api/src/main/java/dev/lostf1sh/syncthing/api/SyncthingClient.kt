@@ -114,6 +114,54 @@ class SyncthingClient(
         http.post("/rest/db/scan") { parameter("folder", folderId) }
     }
 
+    suspend fun rescanSubdir(folderId: String, sub: String) {
+        http.post("/rest/db/scan") {
+            parameter("folder", folderId)
+            parameter("sub", sub)
+        }
+    }
+
+    suspend fun browseFolder(
+        folderId: String,
+        prefix: String = "",
+        levels: Int = 0,
+    ): List<BrowseEntry> =
+        http.get("/rest/db/browse") {
+            parameter("folder", folderId)
+            if (prefix.isNotEmpty()) parameter("prefix", prefix)
+            parameter("levels", levels)
+        }.body()
+
+    suspend fun folderNeed(folderId: String, page: Int = 0, perpage: Int = 0): NeedList =
+        http.get("/rest/db/need") {
+            parameter("folder", folderId)
+            if (page > 0) parameter("page", page)
+            if (perpage > 0) parameter("perpage", perpage)
+        }.body()
+
+    suspend fun folderIgnores(folderId: String): Ignores =
+        http.get("/rest/db/ignores") { parameter("folder", folderId) }.body()
+
+    suspend fun setFolderIgnores(folderId: String, patterns: List<String>) {
+        http.post("/rest/db/ignores") {
+            parameter("folder", folderId)
+            contentType(ContentType.Application.Json)
+            setBody(SetIgnoresBody(ignore = patterns))
+        }
+    }
+
+    suspend fun revertFolder(folderId: String) {
+        http.post("/rest/db/revert") { parameter("folder", folderId) }
+    }
+
+    // --- Stats ---
+
+    suspend fun deviceStats(): Map<String, DeviceStats> =
+        http.get("/rest/stats/device").body()
+
+    suspend fun folderStats(): Map<String, FolderStats> =
+        http.get("/rest/stats/folder").body()
+
     suspend fun deleteFolder(folderId: String) {
         http.delete("/rest/config/folders/$folderId")
     }

@@ -19,6 +19,7 @@ android {
 
 dependencies {
     implementation(project(":core-native"))
+    implementation(project(":core-api"))
     implementation(project(":data"))
 
     implementation(libs.core.ktx)

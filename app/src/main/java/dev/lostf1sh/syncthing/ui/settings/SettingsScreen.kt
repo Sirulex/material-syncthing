@@ -43,6 +43,7 @@ fun SettingsScreen(
     onProfilesClick: (() -> Unit)? = null,
     onDiagnosticsClick: (() -> Unit)? = null,
     onErrorCenterClick: (() -> Unit)? = null,
+    onBatteryWizardClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -170,6 +171,31 @@ fun SettingsScreen(
                         colors = transparentListItemColors(),
                     )
                 }
+                if (onBatteryWizardClick != null) {
+                    ListItem(
+                        headlineContent = { Text("Reliability") },
+                        supportingContent = { Text("Battery optimization + OEM autostart") },
+                        modifier = Modifier.clickable { onBatteryWizardClick() },
+                        colors = transparentListItemColors(),
+                    )
+                }
+                val context = androidx.compose.ui.platform.LocalContext.current
+                ListItem(
+                    headlineContent = { Text("Language") },
+                    supportingContent = { Text("App language / Uygulama dili") },
+                    modifier = Modifier.clickable {
+                        if (android.os.Build.VERSION.SDK_INT >= 33) {
+                            val intent = android.content.Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS)
+                                .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                            try { context.startActivity(intent) } catch (_: Exception) { }
+                        } else {
+                            val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                            try { context.startActivity(intent) } catch (_: Exception) { }
+                        }
+                    },
+                    colors = transparentListItemColors(),
+                )
             }
 
             // --- About ---

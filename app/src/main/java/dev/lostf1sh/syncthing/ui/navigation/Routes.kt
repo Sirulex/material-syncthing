@@ -34,3 +34,25 @@ object ProfilesRoute
 
 @Serializable
 object DiagnosticsRoute
+
+@Serializable
+object InsightsRoute
+
+@Serializable
+object BatteryWizardRoute
+
+/** One-shot navigation intent from a shortcut / widget / share. Consumed on delivery. */
+sealed interface PendingShortcut {
+    data object ErrorCenter : PendingShortcut
+    data object Insights : PendingShortcut
+    data class Share(val uris: List<android.net.Uri>) : PendingShortcut
+}
+
+@Serializable
+object ShareTargetRoute
+
+@Serializable
+data class FolderBrowserRoute(val folderId: String, val prefix: String = "")
+
+@Serializable
+data class IgnoreEditorRoute(val folderId: String)

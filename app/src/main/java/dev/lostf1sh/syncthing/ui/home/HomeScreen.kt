@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.data.model.BandwidthSample
 import dev.lostf1sh.syncthing.data.model.SyncHealth
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
@@ -54,6 +55,8 @@ fun HomeScreen(
     onRefresh: (suspend () -> Unit)? = null,
     health: SyncHealth? = null,
     localDeviceId: String? = null,
+    bandwidth: List<BandwidthSample> = emptyList(),
+    onInsightsClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by SyncthingService.state.collectAsStateWithLifecycle()
@@ -91,6 +94,10 @@ fun HomeScreen(
                 SyncOverviewCard(
                     health = health,
                     onClick = onOverviewClick,
+                )
+                InsightsCard(
+                    bandwidth = bandwidth,
+                    onClick = onInsightsClick,
                 )
                 HealthBanner(health = health)
             }

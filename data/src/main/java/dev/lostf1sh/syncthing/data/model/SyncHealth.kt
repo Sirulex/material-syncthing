@@ -44,6 +44,15 @@ data class ConflictItem(
 )
 
 /**
+ * Single bandwidth sample — byte rates and the wall-clock time they were computed.
+ */
+data class BandwidthSample(
+    val timestamp: Long,
+    val inBytesPerSec: Long,
+    val outBytesPerSec: Long,
+)
+
+/**
  * Sync profile controlling when syncing is allowed.
  */
 data class SyncProfile(

@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.ServiceCompat
+import dev.lostf1sh.syncthing.data.SettingsStore
+import dev.lostf1sh.syncthing.data.SyncConstraints
 import dev.lostf1sh.syncthing.native.ConfigBootstrapper
 import dev.lostf1sh.syncthing.native.NativeLauncher
 import dev.lostf1sh.syncthing.native.RunState
@@ -21,6 +23,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -32,6 +35,7 @@ class SyncthingService : Service() {
         const val ACTION_START = "dev.lostf1sh.syncthing.action.START"
         const val ACTION_STOP = "dev.lostf1sh.syncthing.action.STOP"
         const val ACTION_PAUSE = "dev.lostf1sh.syncthing.action.PAUSE"
+        const val ACTION_RESCAN_ALL = "dev.lostf1sh.syncthing.action.RESCAN_ALL"
 
         private val _state = MutableStateFlow<RunState>(RunState.Stopped)
         val state: StateFlow<RunState> = _state.asStateFlow()
@@ -39,31 +43,96 @@ class SyncthingService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var syncthingJob: Job? = null
+    private var constraintJob: Job? = null
+    @Volatile private var pausedByConstraint = false
     private lateinit var launcher: NativeLauncher
     private lateinit var bootstrapper: ConfigBootstrapper
     private lateinit var notifications: NotificationController
+    private lateinit var settings: SettingsStore
+    private lateinit var constraints: SyncConstraints
 
     override fun onCreate() {
         super.onCreate()
         launcher = NativeLauncher.fromContext(this)
         bootstrapper = ConfigBootstrapper(filesDir)
         notifications = NotificationController(this)
+        settings = SettingsStore(applicationContext)
+        constraints = SyncConstraints(applicationContext)
+        observeConstraints()
         Log.i(TAG, "Service created")
+    }
+
+    private fun observeConstraints() {
+        constraintJob?.cancel()
+        constraintJob = serviceScope.launch {
+            constraints.observe(settings).collect { state ->
+                when (state) {
+                    is SyncConstraints.ConstraintState.ShouldPause -> {
+                        if (launcher.isRunning) {
+                            Log.i(TAG, "Constraint pause: ${state.reason}")
+                            pausedByConstraint = true
+                            pauseSyncthing(state.reason)
+                        }
+                    }
+                    is SyncConstraints.ConstraintState.ShouldRun -> {
+                        if (pausedByConstraint && !launcher.isRunning) {
+                            Log.i(TAG, "Constraints satisfied; auto-resume")
+                            pausedByConstraint = false
+                            startSyncthing()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> stopSyncthing()
-            ACTION_PAUSE -> pauseSyncthing("User requested pause")
-            else -> startSyncthing()
+            ACTION_STOP -> {
+                pausedByConstraint = false
+                stopSyncthing()
+            }
+            ACTION_PAUSE -> {
+                pausedByConstraint = false
+                pauseSyncthing("User requested pause")
+            }
+            ACTION_RESCAN_ALL -> rescanAllFolders()
+            else -> {
+                pausedByConstraint = false
+                startSyncthing()
+            }
         }
         return START_STICKY
+    }
+
+    private fun rescanAllFolders() {
+        val running = _state.value as? RunState.Running ?: return
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val client = dev.lostf1sh.syncthing.api.SyncthingClient(
+                    baseUrl = "http://127.0.0.1:${running.port}",
+                    apiKey = running.apiKey,
+                )
+                try {
+                    val list: List<dev.lostf1sh.syncthing.api.dto.Folder> = client.folders()
+                    list.forEach { folder ->
+                        try { client.rescanFolder(folder.id) } catch (_: Exception) { }
+                    }
+                } finally {
+                    client.close()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Rescan-all failed", e)
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         Log.i(TAG, "Service destroying")
+        constraintJob?.cancel()
+        constraintJob = null
         // Kill binary synchronously BEFORE cancelling the coroutine that holds waitFor().
         // Process.waitFor() is not cancellable by coroutine cancel, so the coroutine
         // would otherwise race with an unrelated scope and orphan the native process.
@@ -95,6 +164,23 @@ class SyncthingService : Service() {
         startForegroundWithNotification(RunState.Starting)
 
         syncthingJob = serviceScope.launch(Dispatchers.IO) {
+            // Synchronous constraint check before firing the binary. The
+            // observeConstraints flow is upstream-deduped via
+            // distinctUntilChanged, so if the first emission said ShouldPause
+            // while the launcher was still not-running, no later emission will
+            // re-fire. Evaluate current state directly here.
+            try {
+                val gate = constraints.observe(settings).first()
+                if (gate is SyncConstraints.ConstraintState.ShouldPause) {
+                    Log.i(TAG, "Constraint gate blocked start: ${gate.reason}")
+                    pausedByConstraint = true
+                    _state.value = RunState.Paused(gate.reason)
+                    updateNotification(RunState.Paused(gate.reason))
+                    return@launch
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Constraint gate read failed; proceeding", e)
+            }
             try {
                 // Bootstrap config on first run
                 if (!bootstrapper.configExists) {

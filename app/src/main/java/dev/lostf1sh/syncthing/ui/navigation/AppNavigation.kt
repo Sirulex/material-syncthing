@@ -7,7 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -15,29 +14,40 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navDeepLink
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import dev.lostf1sh.syncthing.SyncthingApp
 import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
-import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.api.dto.FolderDevice
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
 import dev.lostf1sh.syncthing.api.dto.Device as DeviceDto
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import dev.lostf1sh.syncthing.ui.devices.AddDeviceScreen
 import dev.lostf1sh.syncthing.ui.devices.DeviceDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.AcceptFolderDialog
+import dev.lostf1sh.syncthing.ui.folders.FolderBrowserScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
+import dev.lostf1sh.syncthing.ui.folders.IgnoreEditorScreen
 import dev.lostf1sh.syncthing.ui.folders.PendingFolderUi
-import dev.lostf1sh.syncthing.data.HealthAggregator
-import dev.lostf1sh.syncthing.data.model.SyncHealth
-import dev.lostf1sh.syncthing.data.model.SyncIssue
-import dev.lostf1sh.syncthing.data.model.ConflictItem
+import dev.lostf1sh.syncthing.ui.folders.appendIgnorePattern
+import dev.lostf1sh.syncthing.api.dto.BrowseEntry
+import dev.lostf1sh.syncthing.data.ConflictResolver
 import dev.lostf1sh.syncthing.ui.errors.ConflictScreen
 import dev.lostf1sh.syncthing.ui.errors.ErrorCenterScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
+import dev.lostf1sh.syncthing.ui.home.InsightsScreen
+import dev.lostf1sh.syncthing.ui.share.ShareTargetScreen
+import dev.lostf1sh.syncthing.ui.share.copyUrisToFolder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
+import dev.lostf1sh.syncthing.ui.settings.BatteryWizardScreen
 import dev.lostf1sh.syncthing.ui.settings.DiagnosticsScreen
 import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
@@ -47,170 +57,108 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    pendingShortcut: androidx.compose.runtime.MutableState<PendingShortcut?>? = null,
+) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val serviceState by SyncthingService.state.collectAsStateWithLifecycle()
     val app = navController.context.applicationContext as SyncthingApp
-    val onboardingDone by app.container.settingsStore.onboardingComplete
+    val container = app.container
+    val appState = container.appState
+    val onboardingDone by container.settingsStore.onboardingComplete
         .collectAsStateWithLifecycle(initialValue = null)
 
-    // Live data
-    var folders by remember { mutableStateOf(emptyList<Folder>()) }
-    var devices by remember { mutableStateOf(emptyList<Device>()) }
-    val folderStates = remember { mutableStateMapOf<String, String>() }
-    val deviceConnections = remember { mutableStateMapOf<String, Boolean>() }
-    var pendingFolder by remember { mutableStateOf<PendingFolderUi?>(null) }
-    val folderStatuses = remember { mutableStateMapOf<String, dev.lostf1sh.syncthing.api.dto.FolderStatus>() }
-    var health by remember { mutableStateOf<SyncHealth?>(null) }
-    var issues by remember { mutableStateOf(emptyList<SyncIssue>()) }
-    var localDeviceId by remember { mutableStateOf<String?>(null) }
+    // Process-wide state, collected in AppContainer. Widgets & tiles read the
+    // same flows — UI just mirrors them.
+    val folders by appState.folders.collectAsStateWithLifecycle()
+    val devices by appState.devices.collectAsStateWithLifecycle()
+    val folderStates by appState.folderStates.collectAsStateWithLifecycle()
+    val folderStatuses by appState.folderStatuses.collectAsStateWithLifecycle()
+    val deviceConnections by appState.deviceConnections.collectAsStateWithLifecycle()
+    val health by appState.health.collectAsStateWithLifecycle()
+    val issues by appState.issues.collectAsStateWithLifecycle()
+    val localDeviceId by appState.localDeviceId.collectAsStateWithLifecycle()
+    val pendingFoldersMap by appState.pendingFolders.collectAsStateWithLifecycle()
+    val bandwidth by appState.bandwidthHistory.collectAsStateWithLifecycle()
+    val folderStats by appState.folderStats.collectAsStateWithLifecycle()
+    val deviceStats by appState.deviceStats.collectAsStateWithLifecycle()
 
-    // Fetch data when service is running
+    // Boot the collector loop when the service is Running. Tear down only on
+    // terminal states — keep caches warm during transient Paused/Starting so a
+    // brief Wi-Fi blip doesn't wipe the UI state.
     LaunchedEffect(serviceState) {
-        val running = serviceState as? RunState.Running ?: return@LaunchedEffect
-        val app = navController.context.applicationContext as SyncthingApp
-        app.container.initClient(running.apiKey, running.port)
-        val container = app.container
-
-        // Identify the local device so the UI can label it "Your Device".
-        // myID is stable for the lifetime of the Syncthing process.
-        launch {
-            try {
-                localDeviceId = container.systemRepository?.status()?.myID
-            } catch (_: Exception) { }
-        }
-
-        // Initial fetch
-        launch {
-            try {
-                folders = container.folderRepository?.folders() ?: emptyList()
-                devices = container.deviceRepository?.devices() ?: emptyList()
-                // Fetch initial folder statuses
-                folders.forEach { folder ->
-                    try {
-                        val status = container.folderRepository?.folderStatus(folder.id)
-                        status?.let { folderStates[folder.id] = it.state }
-                    } catch (_: Exception) { }
-                }
-                // Fetch initial connections
-                try {
-                    val conns = container.systemRepository?.connections()
-                    conns?.connections?.forEach { (id, info) ->
-                        deviceConnections[id] = info.connected
-                    }
-                } catch (_: Exception) { }
-            } catch (_: Exception) { }
-        }
-
-        // Start event stream for live updates
-        container.eventRepository?.start(this)
-        launch {
-            container.eventRepository?.allFolderStates()?.collect { (folderId, state) ->
-                folderStates[folderId] = state
-            }
-        }
-        launch {
-            container.eventRepository?.deviceConnections()?.collect { (deviceId, connected) ->
-                deviceConnections[deviceId] = connected
-            }
-        }
-        launch {
-            container.eventRepository?.configChanges()?.collect {
-                try {
-                    folders = container.folderRepository?.folders() ?: emptyList()
-                    devices = container.deviceRepository?.devices() ?: emptyList()
-                } catch (_: Exception) { }
-            }
-        }
-        // Periodic refresh of folders, devices, statuses, and pending
-        launch {
-            while (currentCoroutineContext().isActive) {
-                delay(3_000)
-                try {
-                    folders = container.folderRepository?.folders() ?: emptyList()
-                    devices = container.deviceRepository?.devices() ?: emptyList()
-                    folders.forEach { folder ->
-                        try {
-                            val st = container.folderRepository?.folderStatus(folder.id)
-                            st?.let {
-                                folderStates[folder.id] = it.state
-                                folderStatuses[folder.id] = it
-                            }
-                        } catch (_: Exception) { }
-                    }
-                    val conns = container.systemRepository?.connections()
-                    conns?.connections?.forEach { (id, info) ->
-                        deviceConnections[id] = info.connected
-                    }
-                    // Aggregate health
-                    val h = HealthAggregator.aggregate(
-                        folders = folders,
-                        folderStates = folderStates,
-                        folderStatuses = folderStatuses,
-                        deviceCount = devices.size,
-                        connectedDevices = deviceConnections.count { it.value },
-                    )
-                    health = h
-                    issues = h.issues
-                } catch (_: Exception) { }
-                // Check pending folders
-                try {
-                    val pending = container.client?.pendingFolders() ?: emptyMap()
-                    if (pending.isNotEmpty() && pendingFolder == null) {
-                        val (folderId, info) = pending.entries.first()
-                        val (deviceId, folderInfo) = info.offeredBy.entries.first()
-                        val deviceName = devices.find { it.deviceID == deviceId }?.name ?: ""
-                        pendingFolder = PendingFolderUi(
-                            folderId = folderId,
-                            label = folderInfo.label,
-                            offeredByDevice = deviceId,
-                            offeredByName = deviceName,
-                        )
-                    }
-                } catch (_: Exception) { }
-            }
+        when (val s = serviceState) {
+            is RunState.Running -> container.initClient(s.apiKey, s.port)
+            is RunState.Stopped, is RunState.Crashed -> container.tearDown()
+            else -> Unit
         }
     }
 
-    // onboardingDone is null while DataStore loads on first composition.
-    // Treat null as "not done yet" so the NavHost still renders (showing the
-    // onboarding route) instead of a blank screen. Once the real value arrives,
-    // nav-compose rebuilds the graph with the correct startDestination.
+    // Consume a pending shortcut once onboarding is done.
+    var incomingShareUris by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    val shortcut = pendingShortcut?.value
+    LaunchedEffect(shortcut, onboardingDone) {
+        if (shortcut == null || onboardingDone != true) return@LaunchedEffect
+        when (shortcut) {
+            PendingShortcut.ErrorCenter -> navController.navigate(ErrorCenterRoute)
+            PendingShortcut.Insights -> navController.navigate(InsightsRoute)
+            is PendingShortcut.Share -> {
+                incomingShareUris = shortcut.uris
+                navController.navigate(ShareTargetRoute)
+            }
+        }
+        pendingShortcut.value = null
+    }
+
+    // Surface the first pending offer as a dialog. Dismissed offers stay
+    // dismissed for this session via rememberSaveable in practice — here we
+    // drop anything the user has already acted on.
+    var dismissedOffers by remember { mutableStateOf(emptySet<String>()) }
+    val pendingFolder: PendingFolderUi? = remember(pendingFoldersMap, devices, dismissedOffers) {
+        pendingFoldersMap.entries
+            .firstOrNull { (folderId, _) -> folderId !in dismissedOffers }
+            ?.let { (folderId, pending) ->
+                val (deviceId, info) = pending.offeredBy.entries.firstOrNull() ?: return@let null
+                val deviceName = devices.find { it.deviceID == deviceId }?.name ?: ""
+                PendingFolderUi(
+                    folderId = folderId,
+                    label = info.label,
+                    offeredByDevice = deviceId,
+                    offeredByName = deviceName,
+                )
+            }
+    }
+
     val done = onboardingDone == true
 
-    // Pending folder accept dialog — only after onboarding is known to be complete
-    // so the dialog can't appear on top of the onboarding flow.
     if (done) {
         pendingFolder?.let { pf ->
             AcceptFolderDialog(
                 pending = pf,
                 onAccept = { path ->
                     scope.launch {
-                        val app = navController.context.applicationContext as SyncthingApp
                         try {
-                            app.container.client?.addFolder(Folder(
-                                id = pf.folderId,
-                                label = pf.label,
-                                path = path,
-                                devices = listOf(
-                                    dev.lostf1sh.syncthing.api.dto.FolderDevice(deviceID = pf.offeredByDevice),
-                                ),
-                            ))
-                            app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
-                            folders = app.container.folderRepository?.folders() ?: emptyList()
+                            container.client?.addFolder(
+                                Folder(
+                                    id = pf.folderId,
+                                    label = pf.label,
+                                    path = path,
+                                    devices = listOf(FolderDevice(deviceID = pf.offeredByDevice)),
+                                )
+                            )
+                            container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
                         } catch (_: Exception) { }
                     }
-                    pendingFolder = null
+                    dismissedOffers = dismissedOffers + pf.folderId
                 },
                 onDismiss = {
                     scope.launch {
-                        val app = navController.context.applicationContext as SyncthingApp
                         try {
-                            app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
+                            container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
                         } catch (_: Exception) { }
                     }
-                    pendingFolder = null
+                    dismissedOffers = dismissedOffers + pf.folderId
                 },
             )
         }
@@ -253,7 +201,7 @@ fun AppNavigation() {
     ) {
         composable<OnboardingRoute> {
             OnboardingScreen(
-                settingsStore = app.container.settingsStore,
+                settingsStore = container.settingsStore,
                 onComplete = {
                     navController.navigate(HomeRoute) {
                         popUpTo(OnboardingRoute) { inclusive = true }
@@ -261,7 +209,9 @@ fun AppNavigation() {
                 },
             )
         }
-        composable<HomeRoute> {
+        composable<HomeRoute>(
+            deepLinks = listOf(navDeepLink { uriPattern = "syncthing://home" }),
+        ) {
             HomeScreen(
                 folders = folders,
                 folderStates = folderStates,
@@ -274,52 +224,92 @@ fun AppNavigation() {
                 onSettingsClick = { navController.navigate(SettingsRoute) },
                 onOverviewClick = { navController.navigate(DiagnosticsRoute) },
                 onRefresh = {
-                    val container = app.container
+                    // Suspend inline so the pull-to-refresh spinner stays up
+                    // until these fetches actually land. Wrapping in scope.launch
+                    // would return immediately and flip the spinner off early.
                     try {
-                        folders = container.folderRepository?.folders() ?: folders
-                        devices = container.deviceRepository?.devices() ?: devices
-                        folders.forEach { folder ->
+                        container.folderRepository?.folders()?.let(appState::setFolders)
+                        container.deviceRepository?.devices()?.let(appState::setDevices)
+                        val fMap = mutableMapOf<String, FolderStatus>()
+                        appState.folders.value.forEach { f ->
                             try {
-                                val st = container.folderRepository?.folderStatus(folder.id)
-                                st?.let {
-                                    folderStates[folder.id] = it.state
-                                    folderStatuses[folder.id] = it
+                                val s = container.folderRepository?.folderStatus(f.id)
+                                if (s != null) {
+                                    fMap[f.id] = s
+                                    appState.updateFolderState(f.id, s.state)
                                 }
                             } catch (_: Exception) { }
                         }
-                        val conns = container.systemRepository?.connections()
-                        conns?.connections?.forEach { (id, info) ->
-                            deviceConnections[id] = info.connected
-                        }
-                        // Re-aggregate health so overview + banner update immediately
-                        val h = HealthAggregator.aggregate(
-                            folders = folders,
-                            folderStates = folderStates,
-                            folderStatuses = folderStatuses,
-                            deviceCount = devices.size,
-                            connectedDevices = deviceConnections.count { it.value },
-                        )
-                        health = h
-                        issues = h.issues
+                        appState.setFolderStatuses(fMap)
+                        container.systemRepository?.connections()?.let(appState::setConnections)
                     } catch (_: Exception) { }
                 },
                 health = health,
                 localDeviceId = localDeviceId,
+                bandwidth = bandwidth,
+                onInsightsClick = { navController.navigate(InsightsRoute) },
             )
         }
-        composable<FolderRoute> { backStackEntry ->
+        composable<ShareTargetRoute> {
+            var copying by remember { mutableStateOf(false) }
+            val context = navController.context
+            ShareTargetScreen(
+                folders = folders,
+                fileCount = incomingShareUris.size,
+                copying = copying,
+                onBack = {
+                    incomingShareUris = emptyList()
+                    navController.popBackStack()
+                },
+                onFolderSelected = { folderId ->
+                    val folder = folders.find { it.id == folderId } ?: return@ShareTargetScreen
+                    val path = folder.path
+                    val uris = incomingShareUris
+                    if (path.isBlank() || uris.isEmpty()) return@ShareTargetScreen
+                    scope.launch {
+                        copying = true
+                        val copied = withContext(Dispatchers.IO) {
+                            copyUrisToFolder(context, uris, path)
+                        }
+                        if (copied > 0) {
+                            try { container.client?.rescanSubdir(folderId, "_incoming") }
+                            catch (_: Exception) { }
+                        }
+                        copying = false
+                        incomingShareUris = emptyList()
+                        navController.popBackStack()
+                    }
+                },
+            )
+        }
+        composable<InsightsRoute>(
+            deepLinks = listOf(navDeepLink { uriPattern = "syncthing://insights" }),
+        ) {
+            InsightsScreen(
+                folders = folders,
+                folderStatuses = folderStatuses,
+                folderStats = folderStats,
+                devices = devices,
+                deviceStats = deviceStats,
+                deviceConnections = deviceConnections,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable<FolderRoute>(
+            deepLinks = listOf(navDeepLink { uriPattern = "syncthing://folder/{id}" }),
+        ) { backStackEntry ->
             val route = backStackEntry.toRoute<FolderRoute>()
             val folder = folders.find { it.id == route.id }
 
             var status by remember { mutableStateOf<FolderStatus?>(null) }
-            val app = navController.context.applicationContext as SyncthingApp
 
-            // Poll status every 2s for live progress
+            // Detail screen wants higher-rate status polling than the global 3s
+            // cadence for smooth progress; keep this local poll.
             LaunchedEffect(route.id, serviceState) {
                 val running = serviceState as? RunState.Running ?: return@LaunchedEffect
                 while (currentCoroutineContext().isActive) {
                     try {
-                        status = app.container.folderRepository?.folderStatus(route.id)
+                        status = container.folderRepository?.folderStatus(route.id)
                     } catch (_: Exception) { }
                     delay(2_000)
                 }
@@ -331,57 +321,147 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
                 onPause = { id ->
                     scope.launch {
-                        try {
-                            app.container.client?.pauseFolder(id)
-                            folders = app.container.folderRepository?.folders() ?: emptyList()
-                        } catch (_: Exception) { }
+                        try { container.client?.pauseFolder(id) } catch (_: Exception) { }
                     }
                 },
                 onResume = { id ->
                     scope.launch {
-                        try {
-                            app.container.client?.resumeFolder(id)
-                            folders = app.container.folderRepository?.folders() ?: emptyList()
-                        } catch (_: Exception) { }
+                        try { container.client?.resumeFolder(id) } catch (_: Exception) { }
                     }
                 },
                 onRescan = { id ->
                     scope.launch {
-                        try { app.container.client?.rescanFolder(id) }
-                        catch (_: Exception) { }
+                        try { container.client?.rescanFolder(id) } catch (_: Exception) { }
                     }
                 },
                 onRemove = { id ->
                     scope.launch {
+                        try { container.client?.deleteFolder(id) } catch (_: Exception) { return@launch }
+                        navController.popBackStack()
+                    }
+                },
+                onBrowse = { id ->
+                    navController.navigate(FolderBrowserRoute(folderId = id, prefix = ""))
+                },
+            )
+        }
+        composable<FolderBrowserRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<FolderBrowserRoute>()
+            val folder = folders.find { it.id == route.folderId }
+            var entries by remember(route.folderId, route.prefix) {
+                mutableStateOf<List<BrowseEntry>>(emptyList())
+            }
+            var pendingPaths by remember(route.folderId) {
+                mutableStateOf<Set<String>>(emptySet())
+            }
+            var loading by remember(route.folderId, route.prefix) { mutableStateOf(true) }
+            val context = navController.context
+
+            suspend fun load() {
+                loading = true
+                try {
+                    entries = container.client?.browseFolder(
+                        folderId = route.folderId,
+                        prefix = route.prefix,
+                        levels = 0,
+                    ) ?: emptyList()
+                } catch (_: Exception) { }
+                try {
+                    val need = container.client?.folderNeed(route.folderId)
+                    val paths = buildSet {
+                        need?.progress?.forEach { add(it.name) }
+                        need?.queued?.forEach { add(it.name) }
+                        need?.rest?.forEach { add(it.name) }
+                    }
+                    pendingPaths = paths
+                } catch (_: Exception) { }
+                loading = false
+            }
+
+            LaunchedEffect(route.folderId, route.prefix, serviceState) {
+                if (serviceState is RunState.Running) load()
+            }
+
+            FolderBrowserScreen(
+                folderLabel = folder?.label?.ifBlank { folder.id } ?: route.folderId,
+                prefix = route.prefix,
+                entries = entries,
+                pendingPaths = pendingPaths,
+                loading = loading,
+                onBack = { navController.popBackStack() },
+                onRefresh = { load() },
+                onOpenDirectory = { newPrefix ->
+                    navController.navigate(FolderBrowserRoute(route.folderId, newPrefix))
+                },
+                onRescan = { sub ->
+                    scope.launch {
+                        try { container.client?.rescanSubdir(route.folderId, sub) }
+                        catch (_: Exception) { }
+                    }
+                },
+                onCopyPath = { path ->
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("Syncthing path", path))
+                },
+                onAddToIgnores = { path ->
+                    scope.launch {
                         try {
-                            app.container.client?.deleteFolder(id)
-                        } catch (_: Exception) { return@launch }
-                        try {
-                            folders = app.container.folderRepository?.folders() ?: emptyList()
+                            val current = container.client?.folderIgnores(route.folderId)
+                            val next = appendIgnorePattern(current?.ignore ?: emptyList(), path)
+                            container.client?.setFolderIgnores(route.folderId, next)
                         } catch (_: Exception) { }
+                    }
+                },
+                onEditIgnores = {
+                    navController.navigate(IgnoreEditorRoute(route.folderId))
+                },
+            )
+        }
+        composable<IgnoreEditorRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<IgnoreEditorRoute>()
+            val folder = folders.find { it.id == route.folderId }
+            var patterns by remember(route.folderId) { mutableStateOf<List<String>>(emptyList()) }
+            var loading by remember(route.folderId) { mutableStateOf(true) }
+            LaunchedEffect(route.folderId, serviceState) {
+                if (serviceState !is RunState.Running) return@LaunchedEffect
+                loading = true
+                try {
+                    patterns = container.client?.folderIgnores(route.folderId)?.ignore ?: emptyList()
+                } catch (_: Exception) { }
+                loading = false
+            }
+            IgnoreEditorScreen(
+                folderLabel = folder?.label?.ifBlank { folder.id } ?: route.folderId,
+                initialPatterns = patterns,
+                loading = loading,
+                onBack = { navController.popBackStack() },
+                onSave = { list ->
+                    scope.launch {
+                        try { container.client?.setFolderIgnores(route.folderId, list) }
+                        catch (_: Exception) { }
                         navController.popBackStack()
                     }
                 },
             )
         }
-        composable<DeviceRoute> { backStackEntry ->
+        composable<DeviceRoute>(
+            deepLinks = listOf(navDeepLink { uriPattern = "syncthing://device/{id}" }),
+        ) { backStackEntry ->
             val route = backStackEntry.toRoute<DeviceRoute>()
             val device = devices.find { it.deviceID == route.id }
 
             var connection by remember { mutableStateOf<ConnectionInfo?>(null) }
             LaunchedEffect(route.id, serviceState) {
                 val running = serviceState as? RunState.Running ?: return@LaunchedEffect
-                val app = navController.context.applicationContext as SyncthingApp
                 try {
-                    val conns = app.container.systemRepository?.connections()
-                    connection = conns?.connections?.get(route.id)
+                    connection = container.systemRepository?.connections()
+                        ?.connections?.get(route.id)
                 } catch (_: Exception) { }
-                // Live updates via events
-                app.container.eventRepository?.deviceConnections()?.collect { (id, _) ->
+                container.eventRepository?.deviceConnections()?.collect { (id, _) ->
                     if (id == route.id) {
                         try {
-                            val conns = app.container.systemRepository?.connections()
-                            connection = conns?.connections?.get(route.id)
+                            connection = container.systemRepository?.connections()
+                                ?.connections?.get(route.id)
                         } catch (_: Exception) { }
                     }
                 }
@@ -393,28 +473,17 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
                 onPause = { id ->
                     scope.launch {
-                        try {
-                            app.container.client?.pauseDevice(id)
-                            devices = app.container.deviceRepository?.devices() ?: emptyList()
-                        } catch (_: Exception) { }
+                        try { container.client?.pauseDevice(id) } catch (_: Exception) { }
                     }
                 },
                 onResume = { id ->
                     scope.launch {
-                        try {
-                            app.container.client?.resumeDevice(id)
-                            devices = app.container.deviceRepository?.devices() ?: emptyList()
-                        } catch (_: Exception) { }
+                        try { container.client?.resumeDevice(id) } catch (_: Exception) { }
                     }
                 },
                 onRemove = { id ->
                     scope.launch {
-                        try {
-                            app.container.client?.deleteDevice(id)
-                        } catch (_: Exception) { return@launch }
-                        try {
-                            devices = app.container.deviceRepository?.devices() ?: emptyList()
-                        } catch (_: Exception) { }
+                        try { container.client?.deleteDevice(id) } catch (_: Exception) { return@launch }
                         navController.popBackStack()
                     }
                 },
@@ -426,8 +495,7 @@ fun AppNavigation() {
             AddDeviceScreen(
                 initialDeviceId = route.prefillId,
                 onAdd = { deviceId, name ->
-                    val app = navController.context.applicationContext as SyncthingApp
-                    val repo = app.container.deviceRepository
+                    val repo = container.deviceRepository
                         ?: return@AddDeviceScreen Result.failure(
                             Exception("Syncthing service not running")
                         )
@@ -439,8 +507,6 @@ fun AppNavigation() {
                                 addresses = listOf("dynamic"),
                             )
                         )
-                        // Refresh device list
-                        devices = repo.devices()
                         Result.success(Unit)
                     } catch (e: Exception) {
                         Result.failure(e)
@@ -450,44 +516,80 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
             )
         }
-        composable<ErrorCenterRoute> {
+        composable<ErrorCenterRoute>(
+            deepLinks = listOf(navDeepLink { uriPattern = "syncthing://errors" }),
+        ) {
             ErrorCenterScreen(
                 issues = issues,
                 onBack = { navController.popBackStack() },
                 onRescan = { id ->
                     scope.launch {
-                        try { app.container.client?.rescanFolder(id) }
+                        try { container.client?.rescanFolder(id) } catch (_: Exception) { }
+                    }
+                },
+            )
+        }
+        composable<ConflictRoute>(
+            deepLinks = listOf(navDeepLink { uriPattern = "syncthing://conflicts" }),
+        ) {
+            val conflicts by appState.conflicts.collectAsStateWithLifecycle()
+            val foldersNow = folders
+            fun pathOf(folderId: String): String? =
+                foldersNow.find { it.id == folderId }?.path?.ifBlank { null }
+
+            ConflictScreen(
+                conflicts = conflicts,
+                onBack = { navController.popBackStack() },
+                onKeepLocal = { c ->
+                    val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
+                    scope.launch {
+                        ConflictResolver.keepCurrent(folderPath, c.path)
+                        try { container.client?.rescanFolder(c.folderId) } catch (_: Exception) { }
+                    }
+                },
+                onKeepRemote = { c ->
+                    val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
+                    scope.launch {
+                        ConflictResolver.keepConflict(folderPath, c.path)
+                        try { container.client?.rescanFolder(c.folderId) } catch (_: Exception) { }
+                    }
+                },
+                onDuplicate = { c ->
+                    // "Keep both" is filesystem-no-op (both files already
+                    // exist), but users need feedback that their tap
+                    // registered. Fire a rescan so the list refreshes and the
+                    // tap feels responsive.
+                    scope.launch {
+                        try { container.client?.rescanFolder(c.folderId) }
                         catch (_: Exception) { }
                     }
                 },
             )
         }
-        composable<ConflictRoute> {
-            ConflictScreen(
-                conflicts = emptyList(), // populated when conflict detection is wired
-                onBack = { navController.popBackStack() },
-            )
-        }
         composable<ProfilesRoute> {
             ProfilesScreen(
-                settingsStore = app.container.settingsStore,
+                settingsStore = container.settingsStore,
                 onBack = { navController.popBackStack() },
             )
         }
         composable<DiagnosticsRoute> {
             DiagnosticsScreen(
-                settingsStore = app.container.settingsStore,
+                settingsStore = container.settingsStore,
                 onBack = { navController.popBackStack() },
             )
         }
         composable<SettingsRoute> {
             SettingsScreen(
-                settingsStore = app.container.settingsStore,
+                settingsStore = container.settingsStore,
                 onBack = { navController.popBackStack() },
                 onProfilesClick = { navController.navigate(ProfilesRoute) },
                 onDiagnosticsClick = { navController.navigate(DiagnosticsRoute) },
                 onErrorCenterClick = { navController.navigate(ErrorCenterRoute) },
+                onBatteryWizardClick = { navController.navigate(BatteryWizardRoute) },
             )
+        }
+        composable<BatteryWizardRoute> {
+            BatteryWizardScreen(onBack = { navController.popBackStack() })
         }
     }
 }
