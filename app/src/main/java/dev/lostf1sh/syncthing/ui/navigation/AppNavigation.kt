@@ -226,9 +226,11 @@ fun AppNavigation() {
                     scope.launch {
                         try {
                             app.container.client?.deleteFolder(id)
+                        } catch (_: Exception) { return@launch }
+                        try {
                             folders = app.container.folderRepository?.folders() ?: emptyList()
-                            navController.popBackStack()
                         } catch (_: Exception) { }
+                        navController.popBackStack()
                     }
                 },
             )
