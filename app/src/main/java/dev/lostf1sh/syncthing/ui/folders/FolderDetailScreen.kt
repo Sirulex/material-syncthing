@@ -10,9 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -25,7 +26,7 @@ import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.ui.core.components.StatusChip
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun FolderDetailScreen(
     folder: Folder?,
@@ -71,7 +72,7 @@ fun FolderDetailScreen(
             if (status.state == "syncing" && status.globalBytes > 0) {
                 Spacer(Modifier.height(8.dp))
                 val progress = status.inSyncBytes.toFloat() / status.globalBytes.toFloat()
-                LinearProgressIndicator(
+                LinearWavyProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.fillMaxWidth(),
                 )
