@@ -27,6 +27,20 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name="dev.lostf1sh.syncthing.service.SyncthingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name="dev.lostf1sh.syncthing.service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>
