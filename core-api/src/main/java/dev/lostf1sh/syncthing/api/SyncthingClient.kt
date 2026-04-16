@@ -11,6 +11,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -118,18 +119,16 @@ class SyncthingClient(
     }
 
     suspend fun pauseFolder(folderId: String) {
-        val folder = http.get("/rest/config/folders/$folderId").body<Folder>()
-        http.put("/rest/config/folders/$folderId") {
+        http.patch("/rest/config/folders/$folderId") {
             contentType(ContentType.Application.Json)
-            setBody(folder.copy(paused = true))
+            setBody(mapOf("paused" to true))
         }
     }
 
     suspend fun resumeFolder(folderId: String) {
-        val folder = http.get("/rest/config/folders/$folderId").body<Folder>()
-        http.put("/rest/config/folders/$folderId") {
+        http.patch("/rest/config/folders/$folderId") {
             contentType(ContentType.Application.Json)
-            setBody(folder.copy(paused = false))
+            setBody(mapOf("paused" to false))
         }
     }
 
