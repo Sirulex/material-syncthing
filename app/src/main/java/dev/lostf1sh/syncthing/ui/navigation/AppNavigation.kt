@@ -1,17 +1,47 @@
 package dev.lostf1sh.syncthing.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.api.dto.FolderStatus
+import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+
+    // Placeholder data until wired to real repositories (needs running service)
+    val folders = remember { emptyList<Folder>() }
+    val folderStates = remember { emptyMap<String, String>() }
+
     NavHost(navController = navController, startDestination = HomeRoute) {
         composable<HomeRoute> {
-            HomeScreen()
+            HomeScreen(
+                folders = folders,
+                folderStates = folderStates,
+                onFolderClick = { folderId ->
+                    navController.navigate(FolderRoute(folderId))
+                },
+                onSettingsClick = { /* Phase 8 */ },
+            )
+        }
+        composable<FolderRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<FolderRoute>()
+            val folder = folders.find { it.id == route.id }
+            FolderDetailScreen(
+                folder = folder,
+                status = null, // wired in Phase 7 with events
+                onBack = { navController.popBackStack() },
+            )
         }
     }
 }

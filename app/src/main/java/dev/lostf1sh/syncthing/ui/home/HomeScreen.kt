@@ -1,79 +1,106 @@
 package dev.lostf1sh.syncthing.ui.home
 
 import android.content.Intent
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import dev.lostf1sh.syncthing.R
+import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
+import dev.lostf1sh.syncthing.ui.folders.FoldersScreen
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
-    val context = LocalContext.current
+fun HomeScreen(
+    folders: List<Folder>,
+    folderStates: Map<String, String>,
+    onFolderClick: (String) -> Unit,
+    onSettingsClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val state by SyncthingService.state.collectAsState()
-    val isRunning = state is RunState.Running || state is RunState.Starting
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.app_name)) })
-        }
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(stringResource(R.string.app_name))
+                        Text(
+                            text = stateLabel(state),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
+            )
+        },
+        modifier = modifier,
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-        ) {
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text(
-                        text = "Syncthing Service",
-                        style = MaterialTheme.typography.titleMedium,
+        Column(modifier = Modifier.padding(innerPadding)) {
+            @OptIn(ExperimentalMaterial3Api::class)
+            PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                Tab(
+                    selected = pagerState.currentPage == 0,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                    text = { Text("Folders") },
+                    icon = { Icon(Icons.Default.Folder, contentDescription = null) },
+                )
+                Tab(
+                    selected = pagerState.currentPage == 1,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                    text = { Text("Devices") },
+                    icon = { Icon(Icons.Default.Devices, contentDescription = null) },
+                )
+            }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (page) {
+                    0 -> FoldersScreen(
+                        folders = folders,
+                        folderStates = folderStates,
+                        onFolderClick = onFolderClick,
                     )
-                    Text(
-                        text = stateLabel(state),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    1 -> Text(
+                        "Devices — Phase 6",
+                        modifier = Modifier.padding(
+                            horizontal = androidx.compose.ui.unit.Dp(16f),
+                            vertical = androidx.compose.ui.unit.Dp(32f),
+                        ),
                     )
                 }
-                Switch(
-                    checked = isRunning,
-                    onCheckedChange = { enabled ->
-                        val intent = Intent(context, SyncthingService::class.java).apply {
-                            action = if (enabled) SyncthingService.ACTION_START
-                                     else SyncthingService.ACTION_STOP
-                        }
-                        ContextCompat.startForegroundService(context, intent)
-                    },
-                )
             }
         }
     }
@@ -82,7 +109,7 @@ fun HomeScreen() {
 private fun stateLabel(state: RunState): String = when (state) {
     is RunState.Stopped -> "Stopped"
     is RunState.Starting -> "Starting..."
-    is RunState.Running -> "Running on port ${state.port}"
-    is RunState.Crashed -> "Crashed: ${state.reason}"
-    is RunState.Paused -> "Paused: ${state.reason}"
+    is RunState.Running -> "Running"
+    is RunState.Crashed -> "Crashed"
+    is RunState.Paused -> "Paused"
 }
