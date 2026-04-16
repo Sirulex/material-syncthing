@@ -12,6 +12,9 @@ local.properties
 *.swp
 *.swo
 
+# Native binaries (built by CI or extracted, too large to commit)
+core-native/src/main/jniLibs/
+
 # Android
 *.apk
 *.aab

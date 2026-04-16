@@ -38,6 +38,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    packaging {
+        jniLibs {
+            // Extract native libs to nativeLibraryDir so syncthing binary is executable
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
