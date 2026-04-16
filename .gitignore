@@ -1,6 +1,6 @@
 # Reference repos (read-only, not vendored)
 reference/
-
+docs/
 # Gradle
 .gradle/
 build/
