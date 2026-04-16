@@ -6,9 +6,9 @@ Legend: ⬜ todo · 🟨 in progress · ✅ done · ❌ rewrite (not port)
 
 | Source (Catfriend1)                                      | Target (material-syncthing)                              | Status |
 |----------------------------------------------------------|----------------------------------------------------------|--------|
-| `service/SyncthingRunnable.java`                         | `core-native/native/NativeLauncher.kt`                   | ⬜     |
+| `service/SyncthingRunnable.java`                         | `core-native/native/NativeLauncher.kt`                   | ✅     |
 | `service/SyncthingService.java`                          | `core-service/service/SyncthingService.kt`               | ⬜     |
-| `util/ConfigXml.java`                                    | `core-native/native/ConfigBootstrapper.kt`               | ⬜     |
+| `util/ConfigXml.java`                                    | `core-native/native/ConfigBootstrapper.kt`               | ✅     |
 | `service/NotificationHandler.java`                       | `core-service/service/NotificationController.kt`         | ⬜     |
 | `service/RunConditionMonitor.java`                       | `data/SyncConstraints.kt`                                | ⬜     |
 | `service/EventProcessor.java`                            | `core-api/events/EventStream.kt`                         | ⬜     |
