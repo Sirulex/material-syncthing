@@ -1,0 +1,26 @@
+# Reference repos (read-only, not vendored)
+reference/
+
+# Gradle
+.gradle/
+build/
+local.properties
+*.iml
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Kotlin
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
