@@ -6,6 +6,7 @@ import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.dto.Event
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
@@ -35,7 +36,8 @@ class EventStream(private val client: SyncthingClient) {
                     emit(event)
                     if (raw.id > since) since = raw.id
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                currentCoroutineContext().ensureActive()
                 delay(BACKOFF_MS)
             }
         }

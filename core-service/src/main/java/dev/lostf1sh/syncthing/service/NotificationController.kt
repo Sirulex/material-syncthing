@@ -65,22 +65,25 @@ class NotificationController(private val context: Context) {
             is RunState.Paused -> "Paused: ${state.reason}"
         }
 
-        val openIntent = context.packageManager
-            .getLaunchIntentForPackage(context.packageName)
-        val pendingOpen = PendingIntent.getActivity(
-            context, 0, openIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-
-        return NotificationCompat.Builder(context, CHANNEL_PERSISTENT)
+        val builder = NotificationCompat.Builder(context, CHANNEL_PERSISTENT)
             .setContentTitle("Syncthing")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_popup_sync)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setContentIntent(pendingOpen)
-            .build()
+
+        val openIntent = context.packageManager
+            .getLaunchIntentForPackage(context.packageName)
+        if (openIntent != null) {
+            val pendingOpen = PendingIntent.getActivity(
+                context, 0, openIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.setContentIntent(pendingOpen)
+        }
+
+        return builder.build()
     }
 
     fun showCrashedNotification(exitCode: Int, reason: String) {

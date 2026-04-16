@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class SyncthingService : Service() {
 
@@ -61,7 +62,9 @@ class SyncthingService : Service() {
 
     override fun onDestroy() {
         Log.i(TAG, "Service destroying")
-        serviceScope.launch {
+        syncthingJob?.cancel()
+        syncthingJob = null
+        runBlocking {
             if (launcher.isRunning) {
                 launcher.stop()
             }
@@ -108,6 +111,7 @@ class SyncthingService : Service() {
                     is RunState.Starting -> {
                         // Exit code 3 = restart requested
                         Log.i(TAG, "Restart requested by Syncthing")
+                        syncthingJob = null
                         startSyncthing()
                     }
                     else -> stopSelf()

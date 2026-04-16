@@ -155,6 +155,10 @@ class ConfigBootstrapper(private val configDir: File) {
         tempFile.outputStream().use { out ->
             transformer.transform(DOMSource(doc), StreamResult(out))
         }
-        tempFile.renameTo(configFile)
+        if (!tempFile.renameTo(configFile)) {
+            Log.e(TAG, "Failed to rename temp config to $configFile")
+            tempFile.delete()
+            error("Config save failed: rename unsuccessful")
+        }
     }
 }

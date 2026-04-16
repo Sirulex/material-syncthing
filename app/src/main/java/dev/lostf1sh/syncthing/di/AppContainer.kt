@@ -27,6 +27,7 @@ class AppContainer(private val appContext: Context) {
     val eventRepository: EventRepository? get() = _eventRepository
 
     fun initClient(apiKey: String, port: Int = 8384) {
+        _eventRepository?.stop()
         _client?.close()
         val newClient = SyncthingClient(
             baseUrl = "http://127.0.0.1:$port",

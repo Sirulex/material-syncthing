@@ -52,7 +52,7 @@ fun AppNavigation() {
         val container = app.container
 
         // Initial fetch
-        scope.launch {
+        launch {
             try {
                 folders = container.folderRepository?.folders() ?: emptyList()
                 devices = container.deviceRepository?.devices() ?: emptyList()
@@ -74,18 +74,18 @@ fun AppNavigation() {
         }
 
         // Start event stream for live updates
-        container.eventRepository?.start(scope)
-        scope.launch {
+        container.eventRepository?.start(this)
+        launch {
             container.eventRepository?.allFolderStates()?.collect { (folderId, state) ->
                 folderStates[folderId] = state
             }
         }
-        scope.launch {
+        launch {
             container.eventRepository?.deviceConnections()?.collect { (deviceId, connected) ->
                 deviceConnections[deviceId] = connected
             }
         }
-        scope.launch {
+        launch {
             container.eventRepository?.configChanges()?.collect {
                 try {
                     folders = container.folderRepository?.folders() ?: emptyList()
@@ -94,7 +94,7 @@ fun AppNavigation() {
             }
         }
         // Periodic refresh of folders, devices, statuses, and pending
-        scope.launch {
+        launch {
             while (true) {
                 delay(3_000)
                 try {
@@ -227,9 +227,9 @@ fun AppNavigation() {
                         try {
                             app.container.client?.deleteFolder(id)
                             folders = app.container.folderRepository?.folders() ?: emptyList()
+                            navController.popBackStack()
                         } catch (_: Exception) { }
                     }
-                    navController.popBackStack()
                 },
             )
         }

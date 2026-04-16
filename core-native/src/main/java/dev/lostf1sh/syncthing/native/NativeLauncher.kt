@@ -93,7 +93,7 @@ class NativeLauncher(
             // Pipe output to log file in background
             val logThread = Thread({
                 BufferedReader(InputStreamReader(proc.inputStream, Charsets.UTF_8)).use { reader ->
-                    logFile.outputStream().buffered().use { out ->
+                    java.io.FileOutputStream(logFile, true).buffered().use { out ->
                         reader.forEachLine { line ->
                             out.write(line.toByteArray(Charsets.UTF_8))
                             out.write('\n'.code)
@@ -121,7 +121,7 @@ class NativeLauncher(
      * Matches Catfriend1 behavior.
      */
     fun interpretExitCode(exitCode: Int): RunState = when (exitCode) {
-        0, 137 -> RunState.Stopped
+        0, 137, 143 -> RunState.Stopped // 137=SIGKILL, 143=SIGTERM
         3 -> RunState.Starting // restart requested
         else -> RunState.Crashed(exitCode, exitCodeReason(exitCode))
     }
@@ -162,6 +162,7 @@ class NativeLauncher(
         )
         val pb = ProcessBuilder(command).apply {
             environment()["HOME"] = configDir.absolutePath
+            redirectErrorStream(true)
         }
         val proc = pb.start()
         val output = proc.inputStream.bufferedReader(Charsets.UTF_8).readText()
@@ -184,6 +185,7 @@ class NativeLauncher(
         )
         val pb = ProcessBuilder(command).apply {
             environment()["HOME"] = configDir.absolutePath
+            redirectErrorStream(true)
         }
         val proc = pb.start()
         val output = proc.inputStream.bufferedReader(Charsets.UTF_8).readText().trim()
