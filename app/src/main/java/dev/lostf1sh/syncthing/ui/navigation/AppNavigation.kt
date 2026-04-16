@@ -272,6 +272,16 @@ fun AppNavigation() {
                         conns?.connections?.forEach { (id, info) ->
                             deviceConnections[id] = info.connected
                         }
+                        // Re-aggregate health so overview + banner update immediately
+                        val h = HealthAggregator.aggregate(
+                            folders = folders,
+                            folderStates = folderStates,
+                            folderStatuses = folderStatuses,
+                            deviceCount = devices.size,
+                            connectedDevices = deviceConnections.count { it.value },
+                        )
+                        health = h
+                        issues = h.issues
                     } catch (_: Exception) { }
                 },
                 health = health,
