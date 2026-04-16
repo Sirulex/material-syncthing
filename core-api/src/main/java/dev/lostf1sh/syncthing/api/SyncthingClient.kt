@@ -158,6 +158,23 @@ class SyncthingClient(
         }
     }
 
+    // --- Completion / Errors ---
+
+    suspend fun folderCompletion(folderId: String, deviceId: String): FolderCompletionInfo =
+        http.get("/rest/db/completion") {
+            parameter("folder", folderId)
+            parameter("device", deviceId)
+        }.body()
+
+    suspend fun folderErrors(folderId: String): FolderErrorList =
+        http.get("/rest/folder/errors") { parameter("folder", folderId) }.body()
+
+    suspend fun systemLog(): SystemLogResponse =
+        http.get("/rest/system/log").body()
+
+    suspend fun systemConfig(): SystemConfig =
+        http.get("/rest/config").body()
+
     // --- Events ---
 
     suspend fun events(since: Long, timeout: Int = 60): List<Event> =

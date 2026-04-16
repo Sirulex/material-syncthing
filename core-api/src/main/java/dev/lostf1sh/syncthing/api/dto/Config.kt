@@ -87,3 +87,48 @@ data class PendingDevice(
     val name: String = "",
     val address: String = "",
 )
+
+@Serializable
+data class FolderCompletionInfo(
+    val completion: Double = 0.0,
+    val globalBytes: Long = 0,
+    val globalItems: Int = 0,
+    val needBytes: Long = 0,
+    val needItems: Int = 0,
+    val needDeletes: Int = 0,
+    val remoteState: String = "",
+    val sequence: Long = 0,
+)
+
+@Serializable
+data class FolderErrorList(
+    val folder: String = "",
+    val errors: List<FolderError> = emptyList(),
+    val page: Int = 1,
+    val perpage: Int = 65536,
+)
+
+@Serializable
+data class FolderError(
+    val error: String = "",
+    val path: String = "",
+)
+
+@Serializable
+data class SystemConfig(
+    val folders: List<Folder> = emptyList(),
+    val devices: List<Device> = emptyList(),
+)
+
+@Serializable
+data class SystemLogResponse(
+    val messages: List<LogMessage> = emptyList(),
+)
+
+@Serializable
+data class LogMessage(
+    @kotlinx.serialization.SerialName("when")
+    val timestamp: String = "",
+    val message: String = "",
+    val level: Int = 0,
+)

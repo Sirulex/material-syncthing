@@ -22,8 +22,20 @@ class SettingsStore(private val context: Context) {
     val chargingOnly: Flow<Boolean> = pref(Keys.CHARGING_ONLY, false)
     val respectBatterySaver: Flow<Boolean> = pref(Keys.RESPECT_BATTERY_SAVER, true)
 
+    // Onboarding
+    val onboardingComplete: Flow<Boolean> = pref(Keys.ONBOARDING_COMPLETE, false)
+    val deviceName: Flow<String> = pref(Keys.DEVICE_NAME, "")
+
+    // Notifications
+    val notifySyncComplete: Flow<Boolean> = pref(Keys.NOTIFY_SYNC_COMPLETE, true)
+    val notifyDeviceConnected: Flow<Boolean> = pref(Keys.NOTIFY_DEVICE_CONNECTED, false)
+    val notifyErrors: Flow<Boolean> = pref(Keys.NOTIFY_ERRORS, true)
+
     // Appearance
     val theme: Flow<String> = pref(Keys.THEME, "system")
+
+    // Sync profiles
+    val activeProfile: Flow<String> = pref(Keys.ACTIVE_PROFILE, "default")
 
     // Advanced
     val guiPort: Flow<Int> = pref(Keys.GUI_PORT, 8384)
@@ -33,7 +45,13 @@ class SettingsStore(private val context: Context) {
     suspend fun setAllowMetered(value: Boolean) = set(Keys.ALLOW_METERED, value)
     suspend fun setChargingOnly(value: Boolean) = set(Keys.CHARGING_ONLY, value)
     suspend fun setRespectBatterySaver(value: Boolean) = set(Keys.RESPECT_BATTERY_SAVER, value)
+    suspend fun setOnboardingComplete(value: Boolean) = set(Keys.ONBOARDING_COMPLETE, value)
+    suspend fun setDeviceName(value: String) = set(Keys.DEVICE_NAME, value)
+    suspend fun setNotifySyncComplete(value: Boolean) = set(Keys.NOTIFY_SYNC_COMPLETE, value)
+    suspend fun setNotifyDeviceConnected(value: Boolean) = set(Keys.NOTIFY_DEVICE_CONNECTED, value)
+    suspend fun setNotifyErrors(value: Boolean) = set(Keys.NOTIFY_ERRORS, value)
     suspend fun setTheme(value: String) = set(Keys.THEME, value)
+    suspend fun setActiveProfile(value: String) = set(Keys.ACTIVE_PROFILE, value)
     suspend fun setGuiPort(value: Int) = set(Keys.GUI_PORT, value)
 
     private fun pref(key: Preferences.Key<Boolean>, default: Boolean): Flow<Boolean> =
@@ -55,7 +73,13 @@ class SettingsStore(private val context: Context) {
         val ALLOW_METERED = booleanPreferencesKey("allow_metered")
         val CHARGING_ONLY = booleanPreferencesKey("charging_only")
         val RESPECT_BATTERY_SAVER = booleanPreferencesKey("respect_battery_saver")
+        val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
+        val DEVICE_NAME = stringPreferencesKey("device_name")
+        val NOTIFY_SYNC_COMPLETE = booleanPreferencesKey("notify_sync_complete")
+        val NOTIFY_DEVICE_CONNECTED = booleanPreferencesKey("notify_device_connected")
+        val NOTIFY_ERRORS = booleanPreferencesKey("notify_errors")
         val THEME = stringPreferencesKey("theme")
+        val ACTIVE_PROFILE = stringPreferencesKey("active_profile")
         val GUI_PORT = intPreferencesKey("gui_port")
     }
 }

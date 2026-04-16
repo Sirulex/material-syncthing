@@ -222,12 +222,30 @@ fun FolderDetailScreen(
         }
     }
 
-    // Delete confirmation
+    // Delete confirmation with impact preview
     if (showDeleteDialog && folder != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Remove folder?") },
-            text = { Text("This will stop syncing \"${folder.label.ifBlank { folder.id }}\". Files on this device will not be deleted.") },
+            text = {
+                Column {
+                    Text("This will stop syncing \"${folder.label.ifBlank { folder.id }}\".")
+                    Spacer(Modifier.height(8.dp))
+                    if (status != null) {
+                        Text(
+                            "Impact: ${status.localFiles} files (${formatBytes(status.localBytes)}) will stop syncing across ${folder.devices.size} device(s).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                    Text(
+                        "Files on this device will not be deleted.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false

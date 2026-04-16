@@ -1,5 +1,6 @@
 package dev.lostf1sh.syncthing.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -36,6 +37,9 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     settingsStore: SettingsStore?,
     onBack: () -> Unit,
+    onProfilesClick: (() -> Unit)? = null,
+    onDiagnosticsClick: (() -> Unit)? = null,
+    onErrorCenterClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -47,6 +51,9 @@ fun SettingsScreen(
     val allowMetered by settingsStore.allowMetered.collectAsState(initial = true)
     val chargingOnly by settingsStore.chargingOnly.collectAsState(initial = false)
     val respectBatterySaver by settingsStore.respectBatterySaver.collectAsState(initial = true)
+    val notifySyncComplete by settingsStore.notifySyncComplete.collectAsState(initial = true)
+    val notifyDeviceConnected by settingsStore.notifyDeviceConnected.collectAsState(initial = false)
+    val notifyErrors by settingsStore.notifyErrors.collectAsState(initial = true)
 
     Scaffold(
         topBar = {
@@ -110,6 +117,59 @@ fun SettingsScreen(
                 checked = respectBatterySaver,
                 onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // --- Notifications ---
+            SectionHeader("Notifications")
+
+            SettingsSwitch(
+                title = "Sync complete",
+                description = "Notify when folder finishes syncing",
+                checked = notifySyncComplete,
+                onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
+            )
+
+            SettingsSwitch(
+                title = "Device connected",
+                description = "Notify when device connects",
+                checked = notifyDeviceConnected,
+                onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
+            )
+
+            SettingsSwitch(
+                title = "Errors",
+                description = "Notify on sync errors",
+                checked = notifyErrors,
+                onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // --- Tools ---
+            SectionHeader("Tools")
+
+            if (onProfilesClick != null) {
+                ListItem(
+                    headlineContent = { Text("Sync Profiles") },
+                    supportingContent = { Text("Wi-Fi only, charging, night sync") },
+                    modifier = Modifier.clickable { onProfilesClick() },
+                )
+            }
+            if (onErrorCenterClick != null) {
+                ListItem(
+                    headlineContent = { Text("Error Center") },
+                    supportingContent = { Text("View and resolve sync issues") },
+                    modifier = Modifier.clickable { onErrorCenterClick() },
+                )
+            }
+            if (onDiagnosticsClick != null) {
+                ListItem(
+                    headlineContent = { Text("Diagnostics") },
+                    supportingContent = { Text("Export debug info for troubleshooting") },
+                    modifier = Modifier.clickable { onDiagnosticsClick() },
+                )
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

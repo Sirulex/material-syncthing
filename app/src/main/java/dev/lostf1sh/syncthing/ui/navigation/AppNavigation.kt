@@ -26,7 +26,16 @@ import dev.lostf1sh.syncthing.ui.devices.DeviceDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.AcceptFolderDialog
 import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.PendingFolderUi
+import dev.lostf1sh.syncthing.data.HealthAggregator
+import dev.lostf1sh.syncthing.data.model.SyncHealth
+import dev.lostf1sh.syncthing.data.model.SyncIssue
+import dev.lostf1sh.syncthing.data.model.ConflictItem
+import dev.lostf1sh.syncthing.ui.errors.ConflictScreen
+import dev.lostf1sh.syncthing.ui.errors.ErrorCenterScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
+import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
+import dev.lostf1sh.syncthing.ui.settings.DiagnosticsScreen
+import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,6 +45,9 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val serviceState by SyncthingService.state.collectAsState()
+    val app = navController.context.applicationContext as SyncthingApp
+    val onboardingDone by app.container.settingsStore.onboardingComplete
+        .collectAsState(initial = true) // default true to avoid flash
 
     // Live data
     var folders by remember { mutableStateOf(emptyList<Folder>()) }
@@ -43,6 +55,9 @@ fun AppNavigation() {
     val folderStates = remember { mutableStateMapOf<String, String>() }
     val deviceConnections = remember { mutableStateMapOf<String, Boolean>() }
     var pendingFolder by remember { mutableStateOf<PendingFolderUi?>(null) }
+    val folderStatuses = remember { mutableStateMapOf<String, dev.lostf1sh.syncthing.api.dto.FolderStatus>() }
+    var health by remember { mutableStateOf<SyncHealth?>(null) }
+    var issues by remember { mutableStateOf(emptyList<SyncIssue>()) }
 
     // Fetch data when service is running
     LaunchedEffect(serviceState) {
@@ -103,13 +118,26 @@ fun AppNavigation() {
                     folders.forEach { folder ->
                         try {
                             val st = container.folderRepository?.folderStatus(folder.id)
-                            st?.let { folderStates[folder.id] = it.state }
+                            st?.let {
+                                folderStates[folder.id] = it.state
+                                folderStatuses[folder.id] = it
+                            }
                         } catch (_: Exception) { }
                     }
                     val conns = container.systemRepository?.connections()
                     conns?.connections?.forEach { (id, info) ->
                         deviceConnections[id] = info.connected
                     }
+                    // Aggregate health
+                    val h = HealthAggregator.aggregate(
+                        folders = folders,
+                        folderStates = folderStates,
+                        folderStatuses = folderStatuses,
+                        deviceCount = devices.size,
+                        connectedDevices = deviceConnections.count { it.value },
+                    )
+                    health = h
+                    issues = h.issues
                 } catch (_: Exception) { }
                 // Check pending folders
                 try {
@@ -164,7 +192,19 @@ fun AppNavigation() {
         )
     }
 
-    NavHost(navController = navController, startDestination = HomeRoute) {
+    val startDest: Any = if (onboardingDone) HomeRoute else OnboardingRoute
+
+    NavHost(navController = navController, startDestination = startDest) {
+        composable<OnboardingRoute> {
+            OnboardingScreen(
+                settingsStore = app.container.settingsStore,
+                onComplete = {
+                    navController.navigate(HomeRoute) {
+                        popUpTo(OnboardingRoute) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable<HomeRoute> {
             HomeScreen(
                 folders = folders,
@@ -176,6 +216,7 @@ fun AppNavigation() {
                 onAddDevice = { navController.navigate(AddDeviceRoute()) },
                 onScanQr = { /* ML Kit scanner launch */ },
                 onSettingsClick = { navController.navigate(SettingsRoute) },
+                health = health,
             )
         }
         composable<FolderRoute> { backStackEntry ->
@@ -262,6 +303,33 @@ fun AppNavigation() {
                 device = device,
                 connection = connection,
                 onBack = { navController.popBackStack() },
+                onPause = { id ->
+                    scope.launch {
+                        try {
+                            app.container.client?.pauseDevice(id)
+                            devices = app.container.deviceRepository?.devices() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+                },
+                onResume = { id ->
+                    scope.launch {
+                        try {
+                            app.container.client?.resumeDevice(id)
+                            devices = app.container.deviceRepository?.devices() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+                },
+                onRemove = { id ->
+                    scope.launch {
+                        try {
+                            app.container.client?.deleteDevice(id)
+                        } catch (_: Exception) { return@launch }
+                        try {
+                            devices = app.container.deviceRepository?.devices() ?: emptyList()
+                        } catch (_: Exception) { }
+                        navController.popBackStack()
+                    }
+                },
             )
         }
         composable<AddDeviceRoute> { backStackEntry ->
@@ -293,11 +361,43 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
             )
         }
+        composable<ErrorCenterRoute> {
+            ErrorCenterScreen(
+                issues = issues,
+                onBack = { navController.popBackStack() },
+                onRescan = { id ->
+                    scope.launch {
+                        try { app.container.client?.rescanFolder(id) }
+                        catch (_: Exception) { }
+                    }
+                },
+            )
+        }
+        composable<ConflictRoute> {
+            ConflictScreen(
+                conflicts = emptyList(), // populated when conflict detection is wired
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable<ProfilesRoute> {
+            ProfilesScreen(
+                settingsStore = app.container.settingsStore,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable<DiagnosticsRoute> {
+            DiagnosticsScreen(
+                settingsStore = app.container.settingsStore,
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable<SettingsRoute> {
-            val app = navController.context.applicationContext as SyncthingApp
             SettingsScreen(
                 settingsStore = app.container.settingsStore,
                 onBack = { navController.popBackStack() },
+                onProfilesClick = { navController.navigate(ProfilesRoute) },
+                onDiagnosticsClick = { navController.navigate(DiagnosticsRoute) },
+                onErrorCenterClick = { navController.navigate(ErrorCenterRoute) },
             )
         }
     }

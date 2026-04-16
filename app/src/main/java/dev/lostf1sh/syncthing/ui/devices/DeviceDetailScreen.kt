@@ -35,7 +35,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -49,9 +55,13 @@ fun DeviceDetailScreen(
     device: Device?,
     connection: ConnectionInfo?,
     onBack: () -> Unit,
+    onPause: ((String) -> Unit)? = null,
+    onResume: ((String) -> Unit)? = null,
+    onRemove: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -97,10 +107,12 @@ fun DeviceDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Expressive: ToggleButton for pause/resume
                 ToggleButton(
                     checked = !device.paused,
-                    onCheckedChange = { /* toggle pause */ },
+                    onCheckedChange = { running ->
+                        if (running) onResume?.invoke(device.deviceID)
+                        else onPause?.invoke(device.deviceID)
+                    },
                     shapes = ToggleButtonDefaults.shapes(),
                     modifier = Modifier.weight(1f),
                 ) {
@@ -113,7 +125,6 @@ fun DeviceDetailScreen(
                     Text(if (device.paused) "Resume" else "Pause")
                 }
 
-                // Expressive: OutlinedButton with animated shapes
                 OutlinedButton(
                     onClick = { /* copy ID */ },
                     shapes = ButtonDefaults.shapes(),
@@ -187,8 +198,41 @@ fun DeviceDetailScreen(
                 )
             }
 
+            if (onRemove != null) {
+                Spacer(Modifier.height(24.dp))
+                OutlinedButton(
+                    onClick = { showDeleteDialog = true },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Icon(Icons.Default.Delete, null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Remove Device")
+                }
+            }
+
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showDeleteDialog && device != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Remove device?") },
+            text = { Text("Stop syncing with \"${device.name.ifBlank { device.deviceID.take(7) }}\"?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onRemove?.invoke(device.deviceID)
+                }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

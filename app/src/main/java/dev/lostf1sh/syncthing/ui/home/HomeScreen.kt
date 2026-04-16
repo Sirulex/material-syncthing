@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.data.model.SyncHealth
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
 import dev.lostf1sh.syncthing.ui.devices.DevicesScreen
@@ -50,6 +51,7 @@ fun HomeScreen(
     onAddDevice: () -> Unit,
     onScanQr: () -> Unit,
     onSettingsClick: () -> Unit,
+    health: SyncHealth? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by SyncthingService.state.collectAsState()
@@ -83,6 +85,9 @@ fun HomeScreen(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
+            if (health != null) {
+                HealthBanner(health = health)
+            }
             PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
                 Tab(
                     selected = pagerState.currentPage == 0,

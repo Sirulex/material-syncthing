@@ -19,3 +19,18 @@ object SettingsRoute
 
 @Serializable
 data class AddDeviceRoute(val prefillId: String = "")
+
+@Serializable
+object OnboardingRoute
+
+@Serializable
+object ErrorCenterRoute
+
+@Serializable
+object ConflictRoute
+
+@Serializable
+object ProfilesRoute
+
+@Serializable
+object DiagnosticsRoute
