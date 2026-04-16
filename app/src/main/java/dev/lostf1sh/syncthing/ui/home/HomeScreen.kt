@@ -15,18 +15,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.api.dto.Folder
@@ -51,21 +53,21 @@ fun HomeScreen(
     val state by SyncthingService.state.collectAsState()
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(R.string.app_name))
-                        Text(
-                            text = stateLabel(state),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = stateColor(state),
-                        )
-                    }
+            // Expressive: MediumFlexibleTopAppBar — collapses on scroll
+            MediumFlexibleTopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                subtitle = {
+                    Text(
+                        text = stateLabel(state),
+                        color = stateColor(state),
+                    )
                 },
                 actions = {
+                    // Expressive: IconButton with animated shapes
                     IconButton(
                         onClick = onSettingsClick,
                         shapes = IconButtonDefaults.shapes(),
@@ -73,9 +75,10 @@ fun HomeScreen(
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
             PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {

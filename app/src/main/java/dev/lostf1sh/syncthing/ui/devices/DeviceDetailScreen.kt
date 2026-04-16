@@ -15,10 +15,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -27,13 +28,17 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
 import dev.lostf1sh.syncthing.api.dto.Device
@@ -46,9 +51,12 @@ fun DeviceDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
     Scaffold(
         topBar = {
-            TopAppBar(
+            // Expressive: MediumFlexibleTopAppBar
+            MediumFlexibleTopAppBar(
                 title = { Text(device?.name?.ifBlank { device.deviceID.take(7) } ?: "Device") },
                 navigationIcon = {
                     IconButton(
@@ -58,18 +66,20 @@ fun DeviceDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         if (device == null) {
+            // Expressive: ContainedLoadingIndicator
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularWavyProgressIndicator(modifier = Modifier.size(48.dp))
+                ContainedLoadingIndicator()
             }
             return@Scaffold
         }
@@ -82,14 +92,16 @@ fun DeviceDetailScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Action buttons — expressive animated shapes
+            // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledTonalButton(
-                    onClick = { /* pause/resume */ },
-                    shapes = ButtonDefaults.shapes(),
+                // Expressive: ToggleButton for pause/resume
+                ToggleButton(
+                    checked = !device.paused,
+                    onCheckedChange = { /* toggle pause */ },
+                    shapes = ToggleButtonDefaults.shapes(),
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(
@@ -101,6 +113,7 @@ fun DeviceDetailScreen(
                     Text(if (device.paused) "Resume" else "Pause")
                 }
 
+                // Expressive: OutlinedButton with animated shapes
                 OutlinedButton(
                     onClick = { /* copy ID */ },
                     shapes = ButtonDefaults.shapes(),
@@ -118,7 +131,6 @@ fun DeviceDetailScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Details
             ListItem(
                 headlineContent = { Text("Device ID") },
                 supportingContent = {

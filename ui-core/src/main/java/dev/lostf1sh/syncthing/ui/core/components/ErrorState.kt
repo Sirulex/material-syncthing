@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun EmptyState(
     title: String,
@@ -44,7 +48,11 @@ fun EmptyState(
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onAction) {
+            // Expressive: FilledTonalButton with animated shapes
+            FilledTonalButton(
+                onClick = onAction,
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text(actionLabel)
             }
         }

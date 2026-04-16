@@ -18,7 +18,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -28,12 +28,16 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
@@ -47,9 +51,12 @@ fun FolderDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
     Scaffold(
         topBar = {
-            TopAppBar(
+            // Expressive: MediumFlexibleTopAppBar
+            MediumFlexibleTopAppBar(
                 title = { Text(folder?.label?.ifBlank { folder.id } ?: "Folder") },
                 navigationIcon = {
                     IconButton(
@@ -59,21 +66,20 @@ fun FolderDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         if (folder == null || status == null) {
-            // Expressive loading state
+            // Expressive: ContainedLoadingIndicator
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularWavyProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                )
+                ContainedLoadingIndicator()
             }
             return@Scaffold
         }
@@ -86,7 +92,7 @@ fun FolderDetailScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Status + action buttons
+            // Status + actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -95,7 +101,7 @@ fun FolderDetailScreen(
                 StatusChip(state = status.state)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Expressive buttons with animated shapes
+                    // Expressive: FilledTonalButton with animated shapes
                     FilledTonalButton(
                         onClick = { /* rescan */ },
                         shapes = ButtonDefaults.shapes(),
@@ -109,9 +115,11 @@ fun FolderDetailScreen(
                         Text("Rescan")
                     }
 
-                    FilledTonalButton(
-                        onClick = { /* pause/resume */ },
-                        shapes = ButtonDefaults.shapes(),
+                    // Expressive: ToggleButton for pause/resume
+                    ToggleButton(
+                        checked = !folder.paused,
+                        onCheckedChange = { /* toggle pause */ },
+                        shapes = ToggleButtonDefaults.shapes(),
                     ) {
                         Icon(
                             if (folder.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
@@ -124,7 +132,7 @@ fun FolderDetailScreen(
                 }
             }
 
-            // Expressive wavy sync progress
+            // Expressive: LinearWavyProgressIndicator for sync
             if (status.state == "syncing" && status.globalBytes > 0) {
                 Spacer(Modifier.height(12.dp))
                 val progress = status.inSyncBytes.toFloat() / status.globalBytes.toFloat()
@@ -142,7 +150,6 @@ fun FolderDetailScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Details
             ListItem(
                 headlineContent = { Text("Folder ID") },
                 supportingContent = { Text(folder.id) },
@@ -178,9 +185,7 @@ fun FolderDetailScreen(
             if (status.pullErrors > 0) {
                 ListItem(
                     headlineContent = { Text("Pull Errors") },
-                    supportingContent = {
-                        Text("${status.pullErrors} error(s)")
-                    },
+                    supportingContent = { Text("${status.pullErrors} error(s)") },
                     colors = androidx.compose.material3.ListItemDefaults.colors(
                         supportingColor = MaterialTheme.colorScheme.error,
                     ),
