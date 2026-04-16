@@ -1,7 +1,11 @@
 package dev.lostf1sh.syncthing
 
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,8 +19,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-        // Start syncthing service on app launch
+        requestStoragePermission()
         startSyncthingService()
 
         setContent {
@@ -31,5 +34,17 @@ class MainActivity : ComponentActivity() {
             action = SyncthingService.ACTION_START
         }
         ContextCompat.startForegroundService(this, intent)
+    }
+
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                )
+                startActivity(intent)
+            }
+        }
     }
 }

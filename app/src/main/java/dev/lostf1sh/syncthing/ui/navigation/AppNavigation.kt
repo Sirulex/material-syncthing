@@ -134,14 +134,14 @@ fun AppNavigation() {
     pendingFolder?.let { pf ->
         AcceptFolderDialog(
             pending = pf,
-            onAccept = {
+            onAccept = { path ->
                 scope.launch {
                     val app = navController.context.applicationContext as SyncthingApp
                     try {
                         app.container.client?.addFolder(Folder(
                             id = pf.folderId,
                             label = pf.label,
-                            path = "/storage/emulated/0/Syncthing/${pf.label.ifBlank { pf.folderId }}",
+                            path = path,
                             devices = listOf(
                                 dev.lostf1sh.syncthing.api.dto.FolderDevice(deviceID = pf.offeredByDevice),
                             ),
