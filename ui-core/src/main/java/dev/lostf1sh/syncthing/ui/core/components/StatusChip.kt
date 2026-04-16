@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Expressive status pill with a colored dot + label.
- * Uses a surface-backed pill instead of AssistChip to avoid click semantics.
+ * Uses theme color roles so dark/light/dynamic themes stay coherent.
  */
 @Composable
 fun StatusChip(
@@ -33,7 +33,7 @@ fun StatusChip(
         modifier = modifier,
         shape = RoundedCornerShape(999.dp),
         color = color.copy(alpha = 0.14f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.24f)),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.28f)),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
@@ -54,13 +54,17 @@ fun StatusChip(
     }
 }
 
-private fun stateInfo(state: String): Pair<String, Color> = when (state.lowercase()) {
-    "idle" -> "Idle" to Color(0xFF059669)
-    "syncing" -> "Syncing" to Color(0xFF0891B2)
-    "scanning" -> "Scanning" to Color(0xFF7C3AED)
-    "error" -> "Error" to Color(0xFFDC2626)
-    "paused" -> "Paused" to Color(0xFF6B7280)
-    "waiting" -> "Waiting" to Color(0xFFF59E0B)
-    "cleaning" -> "Cleaning" to Color(0xFF7C3AED)
-    else -> state.replaceFirstChar { it.uppercase() } to Color(0xFF6B7280)
+@Composable
+private fun stateInfo(state: String): Pair<String, Color> {
+    val scheme = MaterialTheme.colorScheme
+    return when (state.lowercase()) {
+        "idle" -> "Idle" to scheme.primary
+        "syncing" -> "Syncing" to scheme.tertiary
+        "scanning" -> "Scanning" to scheme.secondary
+        "error" -> "Error" to scheme.error
+        "paused" -> "Paused" to scheme.outline
+        "waiting" -> "Waiting" to scheme.tertiary
+        "cleaning" -> "Cleaning" to scheme.secondary
+        else -> state.replaceFirstChar { it.uppercase() } to scheme.outline
+    }
 }

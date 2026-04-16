@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -49,6 +48,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
+import dev.lostf1sh.syncthing.ui.core.components.DetailSkeleton
 import dev.lostf1sh.syncthing.ui.core.components.StatusChip
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -84,10 +84,12 @@ fun FolderDetailScreen(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         if (folder == null || status == null) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) { ContainedLoadingIndicator() }
+            DetailSkeleton(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                rowCount = 6,
+            )
             return@Scaffold
         }
 
@@ -99,39 +101,40 @@ fun FolderDetailScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Status + actions
+            // Status chip row
+            StatusChip(state = status.state)
+
+            Spacer(Modifier.height(12.dp))
+
+            // Expressive connected action cluster — tight 4dp spacing, animated shape morph
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                StatusChip(state = status.state)
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(
-                        onClick = { onRescan?.invoke(folder.id) },
-                        shapes = ButtonDefaults.shapes(),
-                    ) {
-                        Icon(Icons.Default.Refresh, null, Modifier.size(ButtonDefaults.IconSize))
-                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                        Text("Rescan")
-                    }
-
-                    ToggleButton(
-                        checked = !folder.paused,
-                        onCheckedChange = { running ->
-                            if (running) onResume?.invoke(folder.id)
-                            else onPause?.invoke(folder.id)
-                        },
-                        shapes = ToggleButtonDefaults.shapes(),
-                    ) {
-                        Icon(
-                            if (folder.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                            null, Modifier.size(ButtonDefaults.IconSize),
-                        )
-                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                        Text(if (folder.paused) "Resume" else "Pause")
-                    }
+                FilledTonalButton(
+                    onClick = { onRescan?.invoke(folder.id) },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.Refresh, null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Rescan")
+                }
+                ToggleButton(
+                    checked = !folder.paused,
+                    onCheckedChange = { running ->
+                        if (running) onResume?.invoke(folder.id)
+                        else onPause?.invoke(folder.id)
+                    },
+                    shapes = ToggleButtonDefaults.shapes(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        if (folder.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                        null, Modifier.size(ButtonDefaults.IconSize),
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text(if (folder.paused) "Resume" else "Pause")
                 }
             }
 

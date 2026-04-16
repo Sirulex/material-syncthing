@@ -31,17 +31,20 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 
@@ -53,6 +56,7 @@ fun DevicesScreen(
     onDeviceClick: (String) -> Unit,
     onAddDevice: (() -> Unit)? = null,
     onScanQr: (() -> Unit)? = null,
+    onRefresh: (suspend () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     if (devices.isEmpty()) {
@@ -73,22 +77,36 @@ fun DevicesScreen(
         derivedStateOf { listState.firstVisibleItemIndex == 0 }
     }
     var fabExpanded by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var refreshing by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = {
+                val action = onRefresh ?: return@PullToRefreshBox
+                scope.launch {
+                    refreshing = true
+                    try { action() } finally { refreshing = false }
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            item { Spacer(Modifier.height(8.dp)) }
-            items(devices, key = { it.deviceID }) { device ->
-                DeviceCard(
-                    device = device,
-                    isConnected = connections[device.deviceID] == true,
-                    onClick = { onDeviceClick(device.deviceID) },
-                )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item { Spacer(Modifier.height(8.dp)) }
+                items(devices, key = { it.deviceID }) { device ->
+                    DeviceCard(
+                        device = device,
+                        isConnected = connections[device.deviceID] == true,
+                        onClick = { onDeviceClick(device.deviceID) },
+                    )
+                }
+                item { Spacer(Modifier.height(80.dp)) }
             }
-            item { Spacer(Modifier.height(80.dp)) }
         }
 
         // Expressive FAB Menu — expandable with QR scan + manual add

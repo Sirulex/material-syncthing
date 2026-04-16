@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.data.model.SyncIssue
+import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -73,21 +74,11 @@ fun ErrorCenterScreen(
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text("No issues", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Everything is running smoothly",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                EmptyState(
+                    title = "All clear",
+                    description = "No issues detected. Sync is running smoothly.",
+                    icon = Icons.Default.CheckCircle,
+                )
             }
             return@Scaffold
         }

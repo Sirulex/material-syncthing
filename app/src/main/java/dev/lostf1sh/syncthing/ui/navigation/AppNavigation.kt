@@ -253,6 +253,27 @@ fun AppNavigation() {
                 onAddDevice = { navController.navigate(AddDeviceRoute()) },
                 onScanQr = { /* ML Kit scanner launch */ },
                 onSettingsClick = { navController.navigate(SettingsRoute) },
+                onOverviewClick = { navController.navigate(DiagnosticsRoute) },
+                onRefresh = {
+                    val container = app.container
+                    try {
+                        folders = container.folderRepository?.folders() ?: folders
+                        devices = container.deviceRepository?.devices() ?: devices
+                        folders.forEach { folder ->
+                            try {
+                                val st = container.folderRepository?.folderStatus(folder.id)
+                                st?.let {
+                                    folderStates[folder.id] = it.state
+                                    folderStatuses[folder.id] = it
+                                }
+                            } catch (_: Exception) { }
+                        }
+                        val conns = container.systemRepository?.connections()
+                        conns?.connections?.forEach { (id, info) ->
+                            deviceConnections[id] = info.connected
+                        }
+                    } catch (_: Exception) { }
+                },
                 health = health,
             )
         }

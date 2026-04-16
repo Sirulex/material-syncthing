@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -48,6 +47,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
 import dev.lostf1sh.syncthing.api.dto.Device
+import dev.lostf1sh.syncthing.ui.core.components.DetailSkeleton
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -82,15 +82,13 @@ fun DeviceDetailScreen(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         if (device == null) {
-            // Expressive: ContainedLoadingIndicator
-            Box(
+            // Expressive: shimmer skeleton matches the detail layout
+            DetailSkeleton(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                ContainedLoadingIndicator()
-            }
+                rowCount = 5,
+            )
             return@Scaffold
         }
 
@@ -102,10 +100,10 @@ fun DeviceDetailScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Action buttons
+            // Expressive connected action cluster — tight 4dp spacing, animated shape morph
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 ToggleButton(
                     checked = !device.paused,

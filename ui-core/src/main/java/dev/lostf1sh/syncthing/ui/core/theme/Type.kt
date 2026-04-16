@@ -1,61 +1,46 @@
 package dev.lostf1sh.syncthing.ui.core.theme
 
-import android.os.Build
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.ExperimentalTextApi
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
+import dev.lostf1sh.syncthing.ui.core.R
 
 /**
- * Google Sans Flex — variable font bundled on Android 14+ (API 34).
+ * Google Sans Flex — variable font bundled in res/font/gflex_variable.ttf.
  *
  * Axes used:
  *  - wght (100..1000): weight
- *  - ROND (0..100):    roundness  — 100 = fully rounded letterforms
- *  - opsz (auto):      optical sizing hint (matches point size)
- *  - GRAD (-200..150): grade (contrast)
+ *  - ROND (0..100):    roundness — 100 = fully rounded letterforms
  *
- * On older devices the family name resolves to the platform default (sans-serif).
- * Variation settings are ignored by non-variable fallbacks but cause no crash.
+ * Shipped inside the APK so every device renders the same, regardless of OS version.
  */
+private const val ROND = 100f
+
 @OptIn(ExperimentalTextApi::class)
-private fun googleSansFlex(
-    weight: Int,
-    roundness: Float = 100f,
-    grade: Int = 0,
-    opticalSize: Float = 14f,
-): Font = Font(
-    familyName = DeviceFontFamilyName("google-sans-flex"),
-    weight = FontWeight(weight),
+private fun gflex(weight: FontWeight) = Font(
+    resId = R.font.gflex_variable,
+    weight = weight,
     variationSettings = FontVariation.Settings(
-        FontVariation.weight(weight),
-        FontVariation.grade(grade),
-        FontVariation.Setting("ROND", roundness),
-        FontVariation.Setting("opsz", opticalSize),
+        FontVariation.weight(weight.weight),
+        FontVariation.Setting("ROND", ROND),
     ),
 )
 
-private val GoogleSansFlexRounded: FontFamily =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        FontFamily(
-            googleSansFlex(300),
-            googleSansFlex(400),
-            googleSansFlex(500),
-            googleSansFlex(600),
-            googleSansFlex(700),
-            googleSansFlex(800),
-            googleSansFlex(900),
-        )
-    } else {
-        FontFamily.SansSerif
-    }
+private val GoogleSansFlexRounded: FontFamily = FontFamily(
+    gflex(FontWeight.Light),
+    gflex(FontWeight.Normal),
+    gflex(FontWeight.Medium),
+    gflex(FontWeight.SemiBold),
+    gflex(FontWeight.Bold),
+    gflex(FontWeight.ExtraBold),
+    gflex(FontWeight.Black),
+)
 
-// Slightly open letterforms pair well with rounded shapes.
 val SyncthingTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = GoogleSansFlexRounded,

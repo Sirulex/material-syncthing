@@ -50,6 +50,8 @@ fun HomeScreen(
     onAddDevice: () -> Unit,
     onScanQr: () -> Unit,
     onSettingsClick: () -> Unit,
+    onOverviewClick: () -> Unit = {},
+    onRefresh: (suspend () -> Unit)? = null,
     health: SyncHealth? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -85,6 +87,10 @@ fun HomeScreen(
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
             if (health != null) {
+                SyncOverviewCard(
+                    health = health,
+                    onClick = onOverviewClick,
+                )
                 HealthBanner(health = health)
             }
             PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -110,6 +116,7 @@ fun HomeScreen(
                         folders = folders,
                         folderStates = folderStates,
                         onFolderClick = onFolderClick,
+                        onRefresh = onRefresh,
                     )
                     1 -> DevicesScreen(
                         devices = devices,
@@ -117,6 +124,7 @@ fun HomeScreen(
                         onDeviceClick = onDeviceClick,
                         onAddDevice = onAddDevice,
                         onScanQr = onScanQr,
+                        onRefresh = onRefresh,
                     )
                 }
             }

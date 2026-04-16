@@ -30,13 +30,19 @@ import androidx.compose.material3.LargeExtendedFloatingActionButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 import dev.lostf1sh.syncthing.ui.core.components.StatusChip
@@ -49,6 +55,7 @@ fun FoldersScreen(
     onFolderClick: (String) -> Unit,
     onAddFolder: (() -> Unit)? = null,
     onTogglePause: ((String, Boolean) -> Unit)? = null,
+    onRefresh: (suspend () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     if (folders.isEmpty()) {
@@ -68,25 +75,39 @@ fun FoldersScreen(
     val fabVisible by remember {
         derivedStateOf { listState.firstVisibleItemIndex == 0 }
     }
+    val scope = rememberCoroutineScope()
+    var refreshing by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = {
+                val action = onRefresh ?: return@PullToRefreshBox
+                scope.launch {
+                    refreshing = true
+                    try { action() } finally { refreshing = false }
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            item { Spacer(Modifier.height(8.dp)) }
-            items(folders, key = { it.id }) { folder ->
-                FolderCard(
-                    folder = folder,
-                    state = folderStates[folder.id] ?: "unknown",
-                    onClick = { onFolderClick(folder.id) },
-                    onTogglePause = onTogglePause?.let { toggle ->
-                        { paused -> toggle(folder.id, paused) }
-                    },
-                )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item { Spacer(Modifier.height(8.dp)) }
+                items(folders, key = { it.id }) { folder ->
+                    FolderCard(
+                        folder = folder,
+                        state = folderStates[folder.id] ?: "unknown",
+                        onClick = { onFolderClick(folder.id) },
+                        onTogglePause = onTogglePause?.let { toggle ->
+                            { paused -> toggle(folder.id, paused) }
+                        },
+                    )
+                }
+                item { Spacer(Modifier.height(80.dp)) }
             }
-            item { Spacer(Modifier.height(80.dp)) }
         }
 
         // Expressive Large Extended FAB
