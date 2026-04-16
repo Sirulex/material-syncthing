@@ -14,9 +14,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,12 +31,18 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -49,13 +57,17 @@ fun FolderDetailScreen(
     folder: Folder?,
     status: FolderStatus?,
     onBack: () -> Unit,
+    onPause: ((String) -> Unit)? = null,
+    onResume: ((String) -> Unit)? = null,
+    onRescan: ((String) -> Unit)? = null,
+    onRemove: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            // Expressive: MediumFlexibleTopAppBar
             MediumFlexibleTopAppBar(
                 title = { Text(folder?.label?.ifBlank { folder.id } ?: "Folder") },
                 navigationIcon = {
@@ -72,15 +84,10 @@ fun FolderDetailScreen(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         if (folder == null || status == null) {
-            // Expressive: ContainedLoadingIndicator
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
                 contentAlignment = Alignment.Center,
-            ) {
-                ContainedLoadingIndicator()
-            }
+            ) { ContainedLoadingIndicator() }
             return@Scaffold
         }
 
@@ -101,30 +108,26 @@ fun FolderDetailScreen(
                 StatusChip(state = status.state)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Expressive: FilledTonalButton with animated shapes
                     FilledTonalButton(
-                        onClick = { /* rescan */ },
+                        onClick = { onRescan?.invoke(folder.id) },
                         shapes = ButtonDefaults.shapes(),
                     ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(ButtonDefaults.IconSize),
-                        )
+                        Icon(Icons.Default.Refresh, null, Modifier.size(ButtonDefaults.IconSize))
                         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                         Text("Rescan")
                     }
 
-                    // Expressive: ToggleButton for pause/resume
                     ToggleButton(
                         checked = !folder.paused,
-                        onCheckedChange = { /* toggle pause */ },
+                        onCheckedChange = { running ->
+                            if (running) onResume?.invoke(folder.id)
+                            else onPause?.invoke(folder.id)
+                        },
                         shapes = ToggleButtonDefaults.shapes(),
                     ) {
                         Icon(
                             if (folder.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                            contentDescription = null,
-                            modifier = Modifier.size(ButtonDefaults.IconSize),
+                            null, Modifier.size(ButtonDefaults.IconSize),
                         )
                         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                         Text(if (folder.paused) "Resume" else "Pause")
@@ -132,7 +135,7 @@ fun FolderDetailScreen(
                 }
             }
 
-            // Expressive: LinearWavyProgressIndicator for sync
+            // Sync progress
             if (status.state == "syncing" && status.globalBytes > 0) {
                 Spacer(Modifier.height(12.dp))
                 val progress = status.inSyncBytes.toFloat() / status.globalBytes.toFloat()
@@ -141,11 +144,14 @@ fun FolderDetailScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    text = "${(progress * 100).toInt()}% synced",
+                    text = "${(progress * 100).toInt()}% — ${formatBytes(status.inSyncBytes)} / ${formatBytes(status.globalBytes)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+            } else if (status.state == "syncing") {
+                Spacer(Modifier.height(12.dp))
+                LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
             Spacer(Modifier.height(16.dp))
@@ -174,7 +180,7 @@ fun FolderDetailScreen(
                     Text("${status.localFiles} files, ${formatBytes(status.localBytes)}")
                 },
             )
-            if (status.needFiles > 0) {
+            if (status.needFiles > 0 || status.needBytes > 0) {
                 ListItem(
                     headlineContent = { Text("Out of Sync") },
                     supportingContent = {
@@ -196,8 +202,42 @@ fun FolderDetailScreen(
                 supportingContent = { Text("${folder.devices.size} device(s)") },
             )
 
+            Spacer(Modifier.height(24.dp))
+
+            // Remove folder
+            OutlinedButton(
+                onClick = { showDeleteDialog = true },
+                shapes = ButtonDefaults.shapes(),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Icon(Icons.Default.Delete, null, Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                Text("Remove Folder")
+            }
+
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    // Delete confirmation
+    if (showDeleteDialog && folder != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Remove folder?") },
+            text = { Text("This will stop syncing \"${folder.label.ifBlank { folder.id }}\". Files on this device will not be deleted.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onRemove?.invoke(folder.id)
+                }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

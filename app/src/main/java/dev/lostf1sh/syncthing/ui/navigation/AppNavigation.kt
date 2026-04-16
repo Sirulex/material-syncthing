@@ -183,17 +183,16 @@ fun AppNavigation() {
             val folder = folders.find { it.id == route.id }
 
             var status by remember { mutableStateOf<FolderStatus?>(null) }
+            val app = navController.context.applicationContext as SyncthingApp
+
+            // Poll status every 2s for live progress
             LaunchedEffect(route.id, serviceState) {
                 val running = serviceState as? RunState.Running ?: return@LaunchedEffect
-                val app = navController.context.applicationContext as SyncthingApp
-                try {
-                    status = app.container.folderRepository?.folderStatus(route.id)
-                } catch (_: Exception) { }
-                // Live updates via events
-                app.container.eventRepository?.folderState(route.id)?.collect {
+                while (true) {
                     try {
                         status = app.container.folderRepository?.folderStatus(route.id)
                     } catch (_: Exception) { }
+                    delay(2_000)
                 }
             }
 
@@ -201,6 +200,37 @@ fun AppNavigation() {
                 folder = folder,
                 status = status,
                 onBack = { navController.popBackStack() },
+                onPause = { id ->
+                    scope.launch {
+                        try {
+                            app.container.client?.pauseFolder(id)
+                            folders = app.container.folderRepository?.folders() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+                },
+                onResume = { id ->
+                    scope.launch {
+                        try {
+                            app.container.client?.resumeFolder(id)
+                            folders = app.container.folderRepository?.folders() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+                },
+                onRescan = { id ->
+                    scope.launch {
+                        try { app.container.client?.rescanFolder(id) }
+                        catch (_: Exception) { }
+                    }
+                },
+                onRemove = { id ->
+                    scope.launch {
+                        try {
+                            app.container.client?.deleteFolder(id)
+                            folders = app.container.folderRepository?.folders() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+                    navController.popBackStack()
+                },
             )
         }
         composable<DeviceRoute> { backStackEntry ->

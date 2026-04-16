@@ -105,6 +105,34 @@ class SyncthingClient(
     suspend fun folderStatus(folderId: String): FolderStatus =
         http.get("/rest/db/status") { parameter("folder", folderId) }.body()
 
+    suspend fun rescanFolder(folderId: String) {
+        http.post("/rest/db/scan") { parameter("folder", folderId) }
+    }
+
+    suspend fun deleteFolder(folderId: String) {
+        http.delete("/rest/config/folders/$folderId")
+    }
+
+    suspend fun deleteDevice(deviceId: String) {
+        http.delete("/rest/config/devices/$deviceId")
+    }
+
+    suspend fun pauseFolder(folderId: String) {
+        val folder = http.get("/rest/config/folders/$folderId").body<Folder>()
+        http.put("/rest/config/folders/$folderId") {
+            contentType(ContentType.Application.Json)
+            setBody(folder.copy(paused = true))
+        }
+    }
+
+    suspend fun resumeFolder(folderId: String) {
+        val folder = http.get("/rest/config/folders/$folderId").body<Folder>()
+        http.put("/rest/config/folders/$folderId") {
+            contentType(ContentType.Application.Json)
+            setBody(folder.copy(paused = false))
+        }
+    }
+
     // --- Pause / Resume ---
 
     suspend fun pauseDevice(deviceId: String) {
