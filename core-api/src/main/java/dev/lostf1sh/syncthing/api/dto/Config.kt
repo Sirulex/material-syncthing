@@ -67,3 +67,23 @@ data class FolderStatus(
     val sequence: Long = 0,
     val version: Int = 0,
 )
+
+@Serializable
+data class PendingFolder(
+    val offeredBy: Map<String, PendingFolderInfo> = emptyMap(),
+)
+
+@Serializable
+data class PendingFolderInfo(
+    val time: String = "",
+    val label: String = "",
+    val receiveEncrypted: Boolean = false,
+    val remoteEncrypted: Boolean = false,
+)
+
+@Serializable
+data class PendingDevice(
+    val time: String = "",
+    val name: String = "",
+    val address: String = "",
+)

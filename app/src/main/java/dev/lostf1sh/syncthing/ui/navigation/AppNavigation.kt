@@ -23,9 +23,12 @@ import dev.lostf1sh.syncthing.service.SyncthingService
 import dev.lostf1sh.syncthing.api.dto.Device as DeviceDto
 import dev.lostf1sh.syncthing.ui.devices.AddDeviceScreen
 import dev.lostf1sh.syncthing.ui.devices.DeviceDetailScreen
+import dev.lostf1sh.syncthing.ui.folders.AcceptFolderDialog
 import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
+import dev.lostf1sh.syncthing.ui.folders.PendingFolderUi
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -39,6 +42,7 @@ fun AppNavigation() {
     var devices by remember { mutableStateOf(emptyList<Device>()) }
     val folderStates = remember { mutableStateMapOf<String, String>() }
     val deviceConnections = remember { mutableStateMapOf<String, Boolean>() }
+    var pendingFolder by remember { mutableStateOf<PendingFolderUi?>(null) }
 
     // Fetch data when service is running
     LaunchedEffect(serviceState) {
@@ -83,13 +87,81 @@ fun AppNavigation() {
         }
         scope.launch {
             container.eventRepository?.configChanges()?.collect {
-                // Refresh folder/device lists on config change
                 try {
                     folders = container.folderRepository?.folders() ?: emptyList()
                     devices = container.deviceRepository?.devices() ?: emptyList()
                 } catch (_: Exception) { }
             }
         }
+        // Periodic refresh of folders, devices, statuses, and pending
+        scope.launch {
+            while (true) {
+                delay(3_000)
+                try {
+                    folders = container.folderRepository?.folders() ?: emptyList()
+                    devices = container.deviceRepository?.devices() ?: emptyList()
+                    folders.forEach { folder ->
+                        try {
+                            val st = container.folderRepository?.folderStatus(folder.id)
+                            st?.let { folderStates[folder.id] = it.state }
+                        } catch (_: Exception) { }
+                    }
+                    val conns = container.systemRepository?.connections()
+                    conns?.connections?.forEach { (id, info) ->
+                        deviceConnections[id] = info.connected
+                    }
+                } catch (_: Exception) { }
+                // Check pending folders
+                try {
+                    val pending = container.client?.pendingFolders() ?: emptyMap()
+                    if (pending.isNotEmpty() && pendingFolder == null) {
+                        val (folderId, info) = pending.entries.first()
+                        val (deviceId, folderInfo) = info.offeredBy.entries.first()
+                        val deviceName = devices.find { it.deviceID == deviceId }?.name ?: ""
+                        pendingFolder = PendingFolderUi(
+                            folderId = folderId,
+                            label = folderInfo.label,
+                            offeredByDevice = deviceId,
+                            offeredByName = deviceName,
+                        )
+                    }
+                } catch (_: Exception) { }
+            }
+        }
+    }
+
+    // Pending folder accept dialog
+    pendingFolder?.let { pf ->
+        AcceptFolderDialog(
+            pending = pf,
+            onAccept = {
+                scope.launch {
+                    val app = navController.context.applicationContext as SyncthingApp
+                    try {
+                        app.container.client?.addFolder(Folder(
+                            id = pf.folderId,
+                            label = pf.label,
+                            path = "/storage/emulated/0/Syncthing/${pf.label.ifBlank { pf.folderId }}",
+                            devices = listOf(
+                                dev.lostf1sh.syncthing.api.dto.FolderDevice(deviceID = pf.offeredByDevice),
+                            ),
+                        ))
+                        app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
+                        folders = app.container.folderRepository?.folders() ?: emptyList()
+                    } catch (_: Exception) { }
+                }
+                pendingFolder = null
+            },
+            onDismiss = {
+                scope.launch {
+                    val app = navController.context.applicationContext as SyncthingApp
+                    try {
+                        app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
+                    } catch (_: Exception) { }
+                }
+                pendingFolder = null
+            },
+        )
     }
 
     NavHost(navController = navController, startDestination = HomeRoute) {

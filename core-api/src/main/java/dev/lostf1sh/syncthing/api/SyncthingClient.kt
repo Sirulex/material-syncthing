@@ -7,6 +7,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -114,7 +115,22 @@ class SyncthingClient(
         http.post("/rest/system/resume") { parameter("device", deviceId) }
     }
 
-    // --- Events (Phase 7, but stubbed) ---
+    // --- Pending ---
+
+    suspend fun pendingFolders(): Map<String, PendingFolder> =
+        http.get("/rest/cluster/pending/folders").body()
+
+    suspend fun pendingDevices(): Map<String, PendingDevice> =
+        http.get("/rest/cluster/pending/devices").body()
+
+    suspend fun dismissPendingFolder(folderId: String, deviceId: String) {
+        http.delete("/rest/cluster/pending/folders") {
+            parameter("folder", folderId)
+            parameter("device", deviceId)
+        }
+    }
+
+    // --- Events ---
 
     suspend fun events(since: Long, timeout: Int = 60): List<Event> =
         http.get("/rest/events") {
