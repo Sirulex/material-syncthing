@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches Compose MaterialTheme.colorScheme.surface (light) -->
+    <color name="window_background">#FFFBFE</color>
+</resources>

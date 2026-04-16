@@ -7,15 +7,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -33,45 +32,45 @@ fun ShowQrDialog(
     val qrBitmap = remember(deviceId) {
         QrCodeGenerator.generate(deviceId).asImageBitmap()
     }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-            shape = MaterialTheme.shapes.extraLarge,
+    // Expressive: ModalBottomSheet — drag-to-dismiss, snappy motion
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Text(
+                text = "Device ID",
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Spacer(Modifier.height(16.dp))
+            Image(
+                bitmap = qrBitmap,
+                contentDescription = "QR code for device ID",
+                modifier = Modifier.size(240.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = deviceId,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 4,
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onDismiss,
+                shapes = ButtonDefaults.shapes(),
             ) {
-                Text(
-                    text = "Device ID",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Spacer(Modifier.height(16.dp))
-                Image(
-                    bitmap = qrBitmap,
-                    contentDescription = "QR code for device ID",
-                    modifier = Modifier.size(240.dp),
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = deviceId,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 4,
-                )
-                Spacer(Modifier.height(16.dp))
-                // Expressive button
-                FilledTonalButton(
-                    onClick = onDismiss,
-                    shapes = ButtonDefaults.shapes(),
-                ) {
-                    Text("Close")
-                }
+                Text("Close")
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

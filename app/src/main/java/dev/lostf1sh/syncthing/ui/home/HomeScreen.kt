@@ -14,14 +14,13 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,8 +60,8 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            // Expressive: MediumFlexibleTopAppBar — collapses on scroll
-            MediumFlexibleTopAppBar(
+            // Expressive: LargeFlexibleTopAppBar — big hero that collapses on scroll
+            LargeFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 subtitle = {
                     Text(

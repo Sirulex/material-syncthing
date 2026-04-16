@@ -95,6 +95,7 @@ fun ErrorCenterScreen(
         LazyColumn(
             modifier = Modifier.padding(innerPadding),
         ) {
+            item { Spacer(Modifier.height(4.dp)) }
             items(issues, key = { it.id }) { issue ->
                 IssueCard(
                     issue = issue,
@@ -125,7 +126,9 @@ private fun IssueCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        // Expressive: extra-large rounded card
+        shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
         ),

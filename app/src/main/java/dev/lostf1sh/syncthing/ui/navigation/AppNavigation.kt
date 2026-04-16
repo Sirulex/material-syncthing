@@ -1,5 +1,9 @@
 package dev.lostf1sh.syncthing.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,7 +51,7 @@ fun AppNavigation() {
     val serviceState by SyncthingService.state.collectAsState()
     val app = navController.context.applicationContext as SyncthingApp
     val onboardingDone by app.container.settingsStore.onboardingComplete
-        .collectAsState(initial = true) // default true to avoid flash
+        .collectAsState(initial = null)
 
     // Live data
     var folders by remember { mutableStateOf(emptyList<Folder>()) }
@@ -192,9 +196,42 @@ fun AppNavigation() {
         )
     }
 
-    val startDest: Any = if (onboardingDone) HomeRoute else OnboardingRoute
+    val done = onboardingDone ?: return
+    val startDest: Any = if (done) HomeRoute else OnboardingRoute
 
-    NavHost(navController = navController, startDestination = startDest) {
+    // Expressive predictive-back transitions — nav-compose drives progress
+    // from the system back gesture when enableOnBackInvokedCallback=true.
+    val spatialSpec = tween<Float>(durationMillis = 350)
+    NavHost(
+        navController = navController,
+        startDestination = startDest,
+        enterTransition = {
+            slideIntoContainer(
+                towards = SlideDirection.Start,
+                animationSpec = tween(350),
+            ) + fadeIn(animationSpec = spatialSpec)
+        },
+        exitTransition = {
+            slideOutOfContainer(
+                towards = SlideDirection.Start,
+                animationSpec = tween(350),
+                targetOffset = { it / 6 },
+            ) + fadeOut(animationSpec = spatialSpec)
+        },
+        popEnterTransition = {
+            slideIntoContainer(
+                towards = SlideDirection.End,
+                animationSpec = tween(350),
+                initialOffset = { it / 6 },
+            ) + fadeIn(animationSpec = spatialSpec)
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                towards = SlideDirection.End,
+                animationSpec = tween(350),
+            ) + fadeOut(animationSpec = spatialSpec)
+        },
+    ) {
         composable<OnboardingRoute> {
             OnboardingScreen(
                 settingsStore = app.container.settingsStore,

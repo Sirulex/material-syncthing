@@ -2,10 +2,12 @@ package dev.lostf1sh.syncthing.ui.onboarding
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -29,19 +31,21 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -76,7 +80,11 @@ fun OnboardingScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Setup") })
+            MediumFlexibleTopAppBar(
+                title = { Text("Setup") },
+                subtitle = { Text("Step ${step + 1} of $totalSteps") },
+                colors = TopAppBarDefaults.topAppBarColors(),
+            )
         },
         modifier = modifier,
     ) { innerPadding ->
@@ -89,18 +97,10 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             // Progress
-            Column {
-                LinearProgressIndicator(
-                    progress = { (step + 1).toFloat() / totalSteps },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Step ${step + 1} of $totalSteps",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            LinearWavyProgressIndicator(
+                progress = { (step + 1).toFloat() / totalSteps },
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Spacer(Modifier.height(24.dp))
 
@@ -132,7 +132,7 @@ fun OnboardingScreen(
                     .padding(bottom = 32.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                FilledTonalButton(
+                Button(
                     onClick = {
                         if (step < totalSteps - 1) {
                             step++
@@ -196,7 +196,16 @@ private fun PermissionsStep() {
             else true
         )
     }
-    var notifGranted by remember { mutableStateOf(true) }
+    var notifGranted by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) == PackageManager.PERMISSION_GRANTED
+            else true
+        )
+    }
 
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()

@@ -1,6 +1,7 @@
 package dev.lostf1sh.syncthing.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,16 +9,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +38,8 @@ fun HealthBanner(
     modifier: Modifier = Modifier,
 ) {
     val (icon, label, tint) = healthDisplay(health.overall)
+    val isSyncing = health.overall == SyncHealth.Status.SYNCING ||
+        health.overall == SyncHealth.Status.SCANNING
 
     Card(
         modifier = modifier
@@ -42,34 +48,49 @@ fun HealthBanner(
         colors = CardDefaults.cardColors(
             containerColor = tint.copy(alpha = 0.12f),
         ),
+        // Expressive: extra-large rounded shape
+        shape = RoundedCornerShape(28.dp),
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                icon, null,
-                tint = tint,
-                modifier = Modifier.size(32.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = tint,
-                )
-                Text(
-                    "${health.folderCount} folders, ${health.connectedDevices}/${health.deviceCount} devices",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Expressive leading icon chip
+                Box(
+                    modifier = Modifier
+                        .size(44.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        icon, null,
+                        tint = tint,
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = tint,
+                    )
+                    Text(
+                        "${health.folderCount} folders · ${health.connectedDevices}/${health.deviceCount} devices",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (health.issues.isNotEmpty()) {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ) { Text("${health.issues.size}") }
+                }
             }
-            if (health.issues.isNotEmpty()) {
-                Text(
-                    "${health.issues.size} issue(s)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
+            // Expressive wavy progress when syncing — living feedback
+            if (isSyncing) {
+                Spacer(Modifier.size(12.dp))
+                LinearWavyProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = tint,
                 )
             }
         }

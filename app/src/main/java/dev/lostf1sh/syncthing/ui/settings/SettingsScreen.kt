@@ -3,19 +3,22 @@ package dev.lostf1sh.syncthing.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
@@ -76,114 +79,112 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .padding(innerPadding)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
             // --- Run Conditions ---
             SectionHeader("Run Conditions")
-
-            SettingsSwitch(
-                title = "Start on boot",
-                description = "Start Syncthing when device boots",
-                checked = runOnBoot,
-                onCheckedChange = { scope.launch { settingsStore.setRunOnBoot(it) } },
-            )
-
-            SettingsSwitch(
-                title = "Wi-Fi only",
-                description = "Only sync when connected to Wi-Fi",
-                checked = wifiOnly,
-                onCheckedChange = { scope.launch { settingsStore.setWifiOnly(it) } },
-            )
-
-            if (wifiOnly) {
+            SectionCard {
                 SettingsSwitch(
-                    title = "Allow metered Wi-Fi",
-                    description = "Sync on metered Wi-Fi networks",
-                    checked = allowMetered,
-                    onCheckedChange = { scope.launch { settingsStore.setAllowMetered(it) } },
+                    title = "Start on boot",
+                    description = "Start Syncthing when device boots",
+                    checked = runOnBoot,
+                    onCheckedChange = { scope.launch { settingsStore.setRunOnBoot(it) } },
+                )
+                SettingsSwitch(
+                    title = "Wi-Fi only",
+                    description = "Only sync when connected to Wi-Fi",
+                    checked = wifiOnly,
+                    onCheckedChange = { scope.launch { settingsStore.setWifiOnly(it) } },
+                )
+                if (wifiOnly) {
+                    SettingsSwitch(
+                        title = "Allow metered Wi-Fi",
+                        description = "Sync on metered Wi-Fi networks",
+                        checked = allowMetered,
+                        onCheckedChange = { scope.launch { settingsStore.setAllowMetered(it) } },
+                    )
+                }
+                SettingsSwitch(
+                    title = "Charging only",
+                    description = "Only sync while charging",
+                    checked = chargingOnly,
+                    onCheckedChange = { scope.launch { settingsStore.setChargingOnly(it) } },
+                )
+                SettingsSwitch(
+                    title = "Respect battery saver",
+                    description = "Pause syncing when battery saver is active",
+                    checked = respectBatterySaver,
+                    onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
                 )
             }
-
-            SettingsSwitch(
-                title = "Charging only",
-                description = "Only sync while charging",
-                checked = chargingOnly,
-                onCheckedChange = { scope.launch { settingsStore.setChargingOnly(it) } },
-            )
-
-            SettingsSwitch(
-                title = "Respect battery saver",
-                description = "Pause syncing when battery saver is active",
-                checked = respectBatterySaver,
-                onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // --- Notifications ---
             SectionHeader("Notifications")
-
-            SettingsSwitch(
-                title = "Sync complete",
-                description = "Notify when folder finishes syncing",
-                checked = notifySyncComplete,
-                onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
-            )
-
-            SettingsSwitch(
-                title = "Device connected",
-                description = "Notify when device connects",
-                checked = notifyDeviceConnected,
-                onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
-            )
-
-            SettingsSwitch(
-                title = "Errors",
-                description = "Notify on sync errors",
-                checked = notifyErrors,
-                onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SectionCard {
+                SettingsSwitch(
+                    title = "Sync complete",
+                    description = "Notify when folder finishes syncing",
+                    checked = notifySyncComplete,
+                    onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
+                )
+                SettingsSwitch(
+                    title = "Device connected",
+                    description = "Notify when device connects",
+                    checked = notifyDeviceConnected,
+                    onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
+                )
+                SettingsSwitch(
+                    title = "Errors",
+                    description = "Notify on sync errors",
+                    checked = notifyErrors,
+                    onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
+                )
+            }
 
             // --- Tools ---
             SectionHeader("Tools")
-
-            if (onProfilesClick != null) {
-                ListItem(
-                    headlineContent = { Text("Sync Profiles") },
-                    supportingContent = { Text("Wi-Fi only, charging, night sync") },
-                    modifier = Modifier.clickable { onProfilesClick() },
-                )
+            SectionCard {
+                if (onProfilesClick != null) {
+                    ListItem(
+                        headlineContent = { Text("Sync Profiles") },
+                        supportingContent = { Text("Wi-Fi only, charging, night sync") },
+                        modifier = Modifier.clickable { onProfilesClick() },
+                        colors = transparentListItemColors(),
+                    )
+                }
+                if (onErrorCenterClick != null) {
+                    ListItem(
+                        headlineContent = { Text("Error Center") },
+                        supportingContent = { Text("View and resolve sync issues") },
+                        modifier = Modifier.clickable { onErrorCenterClick() },
+                        colors = transparentListItemColors(),
+                    )
+                }
+                if (onDiagnosticsClick != null) {
+                    ListItem(
+                        headlineContent = { Text("Diagnostics") },
+                        supportingContent = { Text("Export debug info for troubleshooting") },
+                        modifier = Modifier.clickable { onDiagnosticsClick() },
+                        colors = transparentListItemColors(),
+                    )
+                }
             }
-            if (onErrorCenterClick != null) {
-                ListItem(
-                    headlineContent = { Text("Error Center") },
-                    supportingContent = { Text("View and resolve sync issues") },
-                    modifier = Modifier.clickable { onErrorCenterClick() },
-                )
-            }
-            if (onDiagnosticsClick != null) {
-                ListItem(
-                    headlineContent = { Text("Diagnostics") },
-                    supportingContent = { Text("Export debug info for troubleshooting") },
-                    modifier = Modifier.clickable { onDiagnosticsClick() },
-                )
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // --- About ---
             SectionHeader("About")
-
-            ListItem(
-                headlineContent = { Text("Version") },
-                supportingContent = { Text("0.1.0") },
-            )
-            ListItem(
-                headlineContent = { Text("License") },
-                supportingContent = { Text("MPL-2.0") },
-            )
+            SectionCard {
+                ListItem(
+                    headlineContent = { Text("Version") },
+                    supportingContent = { Text("0.1.0") },
+                    colors = transparentListItemColors(),
+                )
+                ListItem(
+                    headlineContent = { Text("License") },
+                    supportingContent = { Text("MPL-2.0") },
+                    colors = transparentListItemColors(),
+                )
+            }
 
             Spacer(Modifier.height(32.dp))
         }
@@ -196,9 +197,28 @@ private fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
     )
 }
+
+// Expressive: grouped section card with large rounded corners
+@Composable
+private fun SectionCard(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    ) {
+        Column { content() }
+    }
+}
+
+@Composable
+private fun transparentListItemColors() = ListItemDefaults.colors(
+    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+)
 
 @Composable
 private fun SettingsSwitch(
@@ -216,5 +236,6 @@ private fun SettingsSwitch(
                 onCheckedChange = onCheckedChange,
             )
         },
+        colors = transparentListItemColors(),
     )
 }
