@@ -165,23 +165,27 @@ fun AppNavigation() {
             AddDeviceScreen(
                 initialDeviceId = route.prefillId,
                 onAdd = { deviceId, name ->
-                    scope.launch {
-                        val app = navController.context.applicationContext as SyncthingApp
-                        try {
-                            app.container.deviceRepository?.addDevice(
-                                DeviceDto(
-                                    deviceID = deviceId,
-                                    name = name,
-                                    addresses = listOf("dynamic"),
-                                )
+                    val app = navController.context.applicationContext as SyncthingApp
+                    val repo = app.container.deviceRepository
+                        ?: return@AddDeviceScreen Result.failure(
+                            Exception("Syncthing service not running")
+                        )
+                    try {
+                        repo.addDevice(
+                            DeviceDto(
+                                deviceID = deviceId,
+                                name = name,
+                                addresses = listOf("dynamic"),
                             )
-                            // Refresh device list
-                            devices = app.container.deviceRepository?.devices() ?: emptyList()
-                        } catch (_: Exception) { }
+                        )
+                        // Refresh device list
+                        devices = repo.devices()
+                        Result.success(Unit)
+                    } catch (e: Exception) {
+                        Result.failure(e)
                     }
-                    navController.popBackStack()
                 },
-                onScanQr = { /* ML Kit scanner — Phase 9 stub */ },
+                onScanQr = { /* ML Kit scanner */ },
                 onBack = { navController.popBackStack() },
             )
         }

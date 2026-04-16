@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -23,30 +24,38 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.ui.qr.DeviceIdValidator
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AddDeviceScreen(
     initialDeviceId: String = "",
-    onAdd: (deviceId: String, name: String) -> Unit,
+    onAdd: suspend (deviceId: String, name: String) -> Result<Unit>,
     onScanQr: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     var deviceId by remember { mutableStateOf(initialDeviceId) }
     var deviceName by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
     val isValid = DeviceIdValidator.isValid(deviceId)
 
     Scaffold(
@@ -64,16 +73,33 @@ fun AddDeviceScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            LargeExtendedFloatingActionButton(
-                onClick = {
-                    if (isValid) {
-                        onAdd(deviceId.trim().uppercase(), deviceName.trim())
-                    }
-                },
-                icon = { },
-                text = { Text("Add Device") },
-            )
+            if (!isLoading) {
+                LargeExtendedFloatingActionButton(
+                    onClick = {
+                        if (!isValid) return@LargeExtendedFloatingActionButton
+                        isLoading = true
+                        scope.launch {
+                            val result = onAdd(
+                                deviceId.trim().uppercase(),
+                                deviceName.trim(),
+                            )
+                            isLoading = false
+                            result.fold(
+                                onSuccess = { onBack() },
+                                onFailure = { error ->
+                                    snackbarHostState.showSnackbar(
+                                        message = error.message ?: "Failed to add device",
+                                    )
+                                },
+                            )
+                        }
+                    },
+                    icon = { },
+                    text = { Text(if (isValid) "Add Device" else "Enter Valid ID") },
+                )
+            }
         },
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
@@ -85,15 +111,30 @@ fun AddDeviceScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
+            if (isLoading) {
+                ContainedLoadingIndicator(
+                    modifier = Modifier.padding(vertical = 16.dp),
+                )
+            }
+
             OutlinedTextField(
                 value = deviceId,
                 onValueChange = { deviceId = it },
                 label = { Text("Device ID") },
                 placeholder = { Text("XXXXXXX-XXXXXXX-XXXXXXX-...") },
                 isError = deviceId.isNotBlank() && !isValid,
+                enabled = !isLoading,
                 supportingText = {
-                    if (deviceId.isNotBlank() && !isValid) {
-                        Text("Invalid device ID format")
+                    when {
+                        deviceId.isBlank() -> Text("Paste or type the remote device ID")
+                        !isValid -> Text(
+                            "Invalid format: need 8 groups of 7 characters",
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        else -> Text(
+                            "Valid device ID",
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -103,11 +144,11 @@ fun AddDeviceScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // Expressive: scan QR button
             FilledTonalButton(
                 onClick = onScanQr,
                 shapes = ButtonDefaults.shapes(),
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
             ) {
                 Icon(
                     Icons.Default.QrCodeScanner,
@@ -127,12 +168,13 @@ fun AddDeviceScreen(
                 placeholder = { Text("My Laptop") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                enabled = !isLoading,
             )
 
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = "Addresses and other settings can be configured after adding.",
+                text = "The remote device must also add this device for syncing to begin.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
