@@ -1,0 +1,18 @@
+material-syncthing
+Copyright 2024-2026 lostf1sh
+
+This project incorporates code ported from:
+
+1. Catfriend1/syncthing-android (MPL-2.0)
+   https://github.com/Catfriend1/syncthing-android
+   Copyright 2015-2024 Catfriend1 and contributors
+
+2. syncthing/syncthing-android (MPL-2.0, archived)
+   https://github.com/syncthing/syncthing-android
+   Copyright 2012-2023 The Syncthing Authors
+
+Ported files are marked with:
+// Ported from Catfriend1/syncthing-android (MPL-2.0): path/to/Original.java
+
+The Syncthing native binary is licensed under MPL-2.0:
+https://github.com/syncthing/syncthing
