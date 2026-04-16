@@ -20,6 +20,8 @@ import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
+import dev.lostf1sh.syncthing.api.dto.Device as DeviceDto
+import dev.lostf1sh.syncthing.ui.devices.AddDeviceScreen
 import dev.lostf1sh.syncthing.ui.devices.DeviceDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
@@ -99,6 +101,8 @@ fun AppNavigation() {
                 deviceConnections = deviceConnections,
                 onFolderClick = { navController.navigate(FolderRoute(it)) },
                 onDeviceClick = { navController.navigate(DeviceRoute(it)) },
+                onAddDevice = { navController.navigate(AddDeviceRoute()) },
+                onScanQr = { /* ML Kit scanner launch */ },
                 onSettingsClick = { navController.navigate(SettingsRoute) },
             )
         }
@@ -153,6 +157,31 @@ fun AppNavigation() {
             DeviceDetailScreen(
                 device = device,
                 connection = connection,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable<AddDeviceRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<AddDeviceRoute>()
+            AddDeviceScreen(
+                initialDeviceId = route.prefillId,
+                onAdd = { deviceId, name ->
+                    scope.launch {
+                        val app = navController.context.applicationContext as SyncthingApp
+                        try {
+                            app.container.deviceRepository?.addDevice(
+                                DeviceDto(
+                                    deviceID = deviceId,
+                                    name = name,
+                                    addresses = listOf("dynamic"),
+                                )
+                            )
+                            // Refresh device list
+                            devices = app.container.deviceRepository?.devices() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+                    navController.popBackStack()
+                },
+                onScanQr = { /* ML Kit scanner — Phase 9 stub */ },
                 onBack = { navController.popBackStack() },
             )
         }

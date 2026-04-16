@@ -16,3 +16,6 @@ data class DeviceRoute(val id: String)
 
 @Serializable
 object SettingsRoute
+
+@Serializable
+data class AddDeviceRoute(val prefillId: String = "")

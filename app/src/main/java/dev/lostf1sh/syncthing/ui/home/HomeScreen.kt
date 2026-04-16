@@ -47,6 +47,8 @@ fun HomeScreen(
     deviceConnections: Map<String, Boolean>,
     onFolderClick: (String) -> Unit,
     onDeviceClick: (String) -> Unit,
+    onAddDevice: () -> Unit,
+    onScanQr: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -109,6 +111,8 @@ fun HomeScreen(
                         devices = devices,
                         connections = deviceConnections,
                         onDeviceClick = onDeviceClick,
+                        onAddDevice = onAddDevice,
+                        onScanQr = onScanQr,
                     )
                 }
             }
