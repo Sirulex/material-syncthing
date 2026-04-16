@@ -23,6 +23,7 @@ import dev.lostf1sh.syncthing.service.SyncthingService
 import dev.lostf1sh.syncthing.ui.devices.DeviceDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
+import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -98,7 +99,7 @@ fun AppNavigation() {
                 deviceConnections = deviceConnections,
                 onFolderClick = { navController.navigate(FolderRoute(it)) },
                 onDeviceClick = { navController.navigate(DeviceRoute(it)) },
-                onSettingsClick = { /* Phase 8 */ },
+                onSettingsClick = { navController.navigate(SettingsRoute) },
             )
         }
         composable<FolderRoute> { backStackEntry ->
@@ -152,6 +153,13 @@ fun AppNavigation() {
             DeviceDetailScreen(
                 device = device,
                 connection = connection,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable<SettingsRoute> {
+            val app = navController.context.applicationContext as SyncthingApp
+            SettingsScreen(
+                settingsStore = app.container.settingsStore,
                 onBack = { navController.popBackStack() },
             )
         }

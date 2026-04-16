@@ -6,9 +6,14 @@ import dev.lostf1sh.syncthing.api.events.EventStream
 import dev.lostf1sh.syncthing.data.DeviceRepository
 import dev.lostf1sh.syncthing.data.EventRepository
 import dev.lostf1sh.syncthing.data.FolderRepository
+import dev.lostf1sh.syncthing.data.SettingsStore
+import dev.lostf1sh.syncthing.data.SyncConstraints
 import dev.lostf1sh.syncthing.data.SystemRepository
 
 class AppContainer(private val appContext: Context) {
+
+    val settingsStore = SettingsStore(appContext)
+    val syncConstraints = SyncConstraints(appContext)
 
     // Lazily created when service provides apiKey
     private var _client: SyncthingClient? = null
