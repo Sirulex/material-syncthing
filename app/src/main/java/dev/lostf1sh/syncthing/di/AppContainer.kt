@@ -15,32 +15,56 @@ class AppContainer(private val appContext: Context) {
     val settingsStore = SettingsStore(appContext)
     val syncConstraints = SyncConstraints(appContext)
 
-    // Lazily created when service provides apiKey
-    private var _client: SyncthingClient? = null
-    val client: SyncthingClient? get() = _client
+    /**
+     * Bundle of everything that shares a single SyncthingClient lifetime.
+     * Creating repositories here — not in per-call getters — gives the rest
+     * of the app a stable single source of truth.
+     */
+    class ClientHandles internal constructor(
+        val client: SyncthingClient,
+        val folderRepository: FolderRepository,
+        val deviceRepository: DeviceRepository,
+        val systemRepository: SystemRepository,
+        val eventRepository: EventRepository,
+    )
 
-    val folderRepository: FolderRepository? get() = _client?.let { FolderRepository(it) }
-    val deviceRepository: DeviceRepository? get() = _client?.let { DeviceRepository(it) }
-    val systemRepository: SystemRepository? get() = _client?.let { SystemRepository(it) }
+    private val lock = Any()
+    @Volatile
+    private var handles: ClientHandles? = null
 
-    private var _eventRepository: EventRepository? = null
-    val eventRepository: EventRepository? get() = _eventRepository
+    val client: SyncthingClient? get() = handles?.client
+    val folderRepository: FolderRepository? get() = handles?.folderRepository
+    val deviceRepository: DeviceRepository? get() = handles?.deviceRepository
+    val systemRepository: SystemRepository? get() = handles?.systemRepository
+    val eventRepository: EventRepository? get() = handles?.eventRepository
 
     fun initClient(apiKey: String, port: Int = 8384) {
-        _eventRepository?.stop()
-        _client?.close()
-        val newClient = SyncthingClient(
-            baseUrl = "http://127.0.0.1:$port",
-            apiKey = apiKey,
-        )
-        _client = newClient
-        _eventRepository = EventRepository(EventStream(newClient))
+        synchronized(lock) {
+            handles?.let {
+                it.eventRepository.stop()
+                it.client.close()
+            }
+            val newClient = SyncthingClient(
+                baseUrl = "http://127.0.0.1:$port",
+                apiKey = apiKey,
+            )
+            handles = ClientHandles(
+                client = newClient,
+                folderRepository = FolderRepository(newClient),
+                deviceRepository = DeviceRepository(newClient),
+                systemRepository = SystemRepository(newClient),
+                eventRepository = EventRepository(EventStream(newClient)),
+            )
+        }
     }
 
     fun tearDown() {
-        _eventRepository?.stop()
-        _eventRepository = null
-        _client?.close()
-        _client = null
+        synchronized(lock) {
+            handles?.let {
+                it.eventRepository.stop()
+                it.client.close()
+            }
+            handles = null
+        }
     }
 }

@@ -6,13 +6,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -41,17 +41,19 @@ import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
 import dev.lostf1sh.syncthing.ui.settings.DiagnosticsScreen
 import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
-    val serviceState by SyncthingService.state.collectAsState()
+    val serviceState by SyncthingService.state.collectAsStateWithLifecycle()
     val app = navController.context.applicationContext as SyncthingApp
     val onboardingDone by app.container.settingsStore.onboardingComplete
-        .collectAsState(initial = null)
+        .collectAsStateWithLifecycle(initialValue = null)
 
     // Live data
     var folders by remember { mutableStateOf(emptyList<Folder>()) }
@@ -114,7 +116,7 @@ fun AppNavigation() {
         }
         // Periodic refresh of folders, devices, statuses, and pending
         launch {
-            while (true) {
+            while (currentCoroutineContext().isActive) {
                 delay(3_000)
                 try {
                     folders = container.folderRepository?.folders() ?: emptyList()
@@ -162,41 +164,49 @@ fun AppNavigation() {
         }
     }
 
-    // Pending folder accept dialog
-    pendingFolder?.let { pf ->
-        AcceptFolderDialog(
-            pending = pf,
-            onAccept = { path ->
-                scope.launch {
-                    val app = navController.context.applicationContext as SyncthingApp
-                    try {
-                        app.container.client?.addFolder(Folder(
-                            id = pf.folderId,
-                            label = pf.label,
-                            path = path,
-                            devices = listOf(
-                                dev.lostf1sh.syncthing.api.dto.FolderDevice(deviceID = pf.offeredByDevice),
-                            ),
-                        ))
-                        app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
-                        folders = app.container.folderRepository?.folders() ?: emptyList()
-                    } catch (_: Exception) { }
-                }
-                pendingFolder = null
-            },
-            onDismiss = {
-                scope.launch {
-                    val app = navController.context.applicationContext as SyncthingApp
-                    try {
-                        app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
-                    } catch (_: Exception) { }
-                }
-                pendingFolder = null
-            },
-        )
+    // onboardingDone is null while DataStore loads on first composition.
+    // Treat null as "not done yet" so the NavHost still renders (showing the
+    // onboarding route) instead of a blank screen. Once the real value arrives,
+    // nav-compose rebuilds the graph with the correct startDestination.
+    val done = onboardingDone == true
+
+    // Pending folder accept dialog — only after onboarding is known to be complete
+    // so the dialog can't appear on top of the onboarding flow.
+    if (done) {
+        pendingFolder?.let { pf ->
+            AcceptFolderDialog(
+                pending = pf,
+                onAccept = { path ->
+                    scope.launch {
+                        val app = navController.context.applicationContext as SyncthingApp
+                        try {
+                            app.container.client?.addFolder(Folder(
+                                id = pf.folderId,
+                                label = pf.label,
+                                path = path,
+                                devices = listOf(
+                                    dev.lostf1sh.syncthing.api.dto.FolderDevice(deviceID = pf.offeredByDevice),
+                                ),
+                            ))
+                            app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
+                            folders = app.container.folderRepository?.folders() ?: emptyList()
+                        } catch (_: Exception) { }
+                    }
+                    pendingFolder = null
+                },
+                onDismiss = {
+                    scope.launch {
+                        val app = navController.context.applicationContext as SyncthingApp
+                        try {
+                            app.container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
+                        } catch (_: Exception) { }
+                    }
+                    pendingFolder = null
+                },
+            )
+        }
     }
 
-    val done = onboardingDone ?: return
     val startDest: Any = if (done) HomeRoute else OnboardingRoute
 
     // Expressive predictive-back transitions — nav-compose drives progress
@@ -297,7 +307,7 @@ fun AppNavigation() {
             // Poll status every 2s for live progress
             LaunchedEffect(route.id, serviceState) {
                 val running = serviceState as? RunState.Running ?: return@LaunchedEffect
-                while (true) {
+                while (currentCoroutineContext().isActive) {
                     try {
                         status = app.container.folderRepository?.folderStatus(route.id)
                     } catch (_: Exception) { }

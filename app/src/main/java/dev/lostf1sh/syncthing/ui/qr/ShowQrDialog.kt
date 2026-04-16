@@ -16,12 +16,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -29,8 +33,12 @@ fun ShowQrDialog(
     deviceId: String,
     onDismiss: () -> Unit,
 ) {
-    val qrBitmap = remember(deviceId) {
-        QrCodeGenerator.generate(deviceId).asImageBitmap()
+    // Generate the QR bitmap off the main thread — at size=512 the encode +
+    // pixel fill is ~20-40ms and used to jank the sheet expansion animation.
+    val qrBitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, deviceId) {
+        value = withContext(Dispatchers.Default) {
+            QrCodeGenerator.generate(deviceId).asImageBitmap()
+        }
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -50,11 +58,21 @@ fun ShowQrDialog(
                 style = MaterialTheme.typography.titleLarge,
             )
             Spacer(Modifier.height(16.dp))
-            Image(
-                bitmap = qrBitmap,
-                contentDescription = "QR code for device ID",
-                modifier = Modifier.size(240.dp),
-            )
+            val bmp = qrBitmap
+            if (bmp != null) {
+                Image(
+                    bitmap = bmp,
+                    contentDescription = "QR code for device ID",
+                    modifier = Modifier.size(240.dp),
+                )
+            } else {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.size(240.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                }
+            }
             Spacer(Modifier.height(12.dp))
             Text(
                 text = deviceId,

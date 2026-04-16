@@ -24,18 +24,24 @@ class EventRepository(private val eventStream: EventStream) {
     )
     val events: SharedFlow<SyncthingEvent> = _events.asSharedFlow()
 
+    private val startLock = Any()
+    @Volatile
     private var collectJob: Job? = null
 
     fun start(scope: CoroutineScope) {
-        if (collectJob?.isActive == true) return
-        collectJob = scope.launch {
-            eventStream.events().collect { _events.emit(it) }
+        synchronized(startLock) {
+            if (collectJob?.isActive == true) return
+            collectJob = scope.launch {
+                eventStream.events().collect { _events.emit(it) }
+            }
         }
     }
 
     fun stop() {
-        collectJob?.cancel()
-        collectJob = null
+        synchronized(startLock) {
+            collectJob?.cancel()
+            collectJob = null
+        }
     }
 
     /** Folder state changes for a specific folder. */

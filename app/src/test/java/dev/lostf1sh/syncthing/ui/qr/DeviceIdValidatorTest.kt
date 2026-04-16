@@ -46,4 +46,39 @@ class DeviceIdValidatorTest {
     fun `extract returns null for garbage`() {
         assertThat(DeviceIdValidator.extract("not a device id")).isNull()
     }
+
+    @Test
+    fun `extract handles newlines and tabs`() {
+        val id = "mfzwi3d-borsxa2\n-lnfspm4-yfber5y\t-6dy2ht3-mvzhqn6-q42xqr7-qhgxmh2"
+        assertThat(DeviceIdValidator.extract(id)).isEqualTo(
+            "MFZWI3D-BORSXA2-LNFSPM4-YFBER5Y-6DY2HT3-MVZHQN6-Q42XQR7-QHGXMH2"
+        )
+    }
+
+    @Test
+    fun `extract normalizes unicode dashes`() {
+        // Uses en-dash (U+2013) and em-dash (U+2014) instead of ASCII '-'
+        val id = "MFZWI3D\u2013BORSXA2\u2014LNFSPM4-YFBER5Y-6DY2HT3-MVZHQN6-Q42XQR7-QHGXMH2"
+        assertThat(DeviceIdValidator.extract(id)).isNotNull()
+    }
+
+    @Test
+    fun `extract finds ID embedded in surrounding text`() {
+        val text = "Here is my device: MFZWI3D-BORSXA2-LNFSPM4-YFBER5Y-6DY2HT3-MVZHQN6-Q42XQR7-QHGXMH2 share it"
+        assertThat(DeviceIdValidator.extract(text))
+            .isEqualTo("MFZWI3D-BORSXA2-LNFSPM4-YFBER5Y-6DY2HT3-MVZHQN6-Q42XQR7-QHGXMH2")
+    }
+
+    @Test
+    fun `chars outside base32 alphabet are rejected`() {
+        // 0, 1, 8, 9 are not in the Syncthing base32 alphabet.
+        val id = "MFZWI30-BORSXA2-LNFSPM4-YFBER5Y-6DY2HT3-MVZHQN6-Q42XQR7-QHGXMH1"
+        assertThat(DeviceIdValidator.isValid(id)).isFalse()
+    }
+
+    @Test
+    fun `zero-width space is stripped`() {
+        val id = "MFZWI3D-BORSXA2-LNFSPM4-YFBER5Y-6DY2HT3-MVZHQN6-Q42XQR7-QHGXMH2\u200B"
+        assertThat(DeviceIdValidator.isValid(id)).isTrue()
+    }
 }

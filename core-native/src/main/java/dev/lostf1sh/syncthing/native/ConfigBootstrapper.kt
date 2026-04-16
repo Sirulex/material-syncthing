@@ -6,6 +6,8 @@ import android.os.Build
 import android.util.Log
 import java.io.File
 import java.io.StringWriter
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.transform.OutputKeys
 import javax.xml.transform.TransformerFactory
@@ -122,7 +124,16 @@ class ConfigBootstrapper(private val configDir: File) {
     }
 
     private fun parseConfig(): org.w3c.dom.Document {
-        val factory = DocumentBuilderFactory.newInstance()
+        val factory = DocumentBuilderFactory.newInstance().apply {
+            // Defense-in-depth against XXE. config.xml is local but still lives in
+            // a path that could in theory be tampered with via backup restore.
+            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+            setFeature("http://xml.org/sax/features/external-general-entities", false)
+            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            isXIncludeAware = false
+            isExpandEntityReferences = false
+        }
         val builder = factory.newDocumentBuilder()
         return configFile.inputStream().use { builder.parse(it) }
     }
@@ -155,10 +166,19 @@ class ConfigBootstrapper(private val configDir: File) {
         tempFile.outputStream().use { out ->
             transformer.transform(DOMSource(doc), StreamResult(out))
         }
-        if (!tempFile.renameTo(configFile)) {
-            Log.e(TAG, "Failed to rename temp config to $configFile")
+        // File.renameTo is not guaranteed to overwrite on all Android filesystems;
+        // Files.move with REPLACE_EXISTING + ATOMIC_MOVE is (API 26+; minSdk is 28).
+        try {
+            Files.move(
+                tempFile.toPath(),
+                configFile.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to move temp config to $configFile", e)
             tempFile.delete()
-            error("Config save failed: rename unsuccessful")
+            error("Config save failed: ${e.message}")
         }
     }
 }

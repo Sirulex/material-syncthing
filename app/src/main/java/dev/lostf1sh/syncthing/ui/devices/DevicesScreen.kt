@@ -1,5 +1,6 @@
 package dev.lostf1sh.syncthing.ui.devices
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,18 +17,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
@@ -42,7 +40,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import dev.lostf1sh.syncthing.api.dto.Device
@@ -169,26 +166,21 @@ private fun DeviceCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Connection indicator as expressive icon button
-            FilledIconButton(
-                onClick = onClick,
-                shapes = IconButtonDefaults.shapes(),
-                modifier = Modifier.size(40.dp),
-                colors = if (isConnected) {
-                    IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    )
-                } else {
-                    IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    )
-                },
+            // Decorative connection indicator — NOT an interactive button.
+            // The whole card already handles clicks; a nested IconButton confused
+            // TalkBack by exposing two click targets with the same action.
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = if (isConnected) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        shape = MaterialTheme.shapes.large,
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = if (device.name.contains("phone", ignoreCase = true) ||
-                        device.name.contains("pixel", ignoreCase = true) ||
-                        device.name.contains("samsung", ignoreCase = true)
-                    ) Icons.Default.PhoneAndroid else Icons.Default.Computer,
+                    imageVector = Icons.Default.Devices,
                     contentDescription = null,
                     tint = if (isConnected) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,

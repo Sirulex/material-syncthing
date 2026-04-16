@@ -20,12 +20,18 @@ object QrCodeGenerator {
         val matrix = QRCodeWriter().encode(
             content, BarcodeFormat.QR_CODE, size, size, hints
         )
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                bitmap.setPixel(x, y, if (matrix.get(x, y)) Color.BLACK else Color.WHITE)
+        // Build pixels in one IntArray and apply with a single setPixels call.
+        // Per-pixel setPixel() was ~50× slower and blocked the main thread on
+        // first composition at size=512 (262k calls).
+        val pixels = IntArray(size * size)
+        for (y in 0 until size) {
+            val rowOffset = y * size
+            for (x in 0 until size) {
+                pixels[rowOffset + x] = if (matrix.get(x, y)) Color.BLACK else Color.WHITE
             }
         }
-        return bitmap
+        return Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565).apply {
+            setPixels(pixels, 0, size, 0, 0, size, size)
+        }
     }
 }

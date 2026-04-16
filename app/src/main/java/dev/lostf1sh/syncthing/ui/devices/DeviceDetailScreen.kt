@@ -44,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
 import dev.lostf1sh.syncthing.api.dto.Device
@@ -62,6 +64,7 @@ fun DeviceDetailScreen(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
 
     Scaffold(
         topBar = {
@@ -124,7 +127,7 @@ fun DeviceDetailScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { /* copy ID */ },
+                    onClick = { clipboard.setText(AnnotatedString(device.deviceID)) },
                     shapes = ButtonDefaults.shapes(),
                     modifier = Modifier.weight(1f),
                 ) {

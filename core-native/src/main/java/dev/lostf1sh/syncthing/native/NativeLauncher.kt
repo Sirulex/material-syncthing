@@ -15,6 +15,7 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
 import java.net.Inet4Address
+import java.util.concurrent.TimeUnit
 
 /**
  * Launches and manages the Syncthing native binary as a subprocess.
@@ -36,6 +37,7 @@ class NativeLauncher(
         private const val TAG = "NativeLauncher"
         private const val LOG_MAX_LINES = 200_000
         private const val STOP_TIMEOUT_MS = 3_000L
+        private const val ONESHOT_TIMEOUT_SEC = 30L
 
         fun fromContext(context: Context): NativeLauncher {
             val appInfo = context.applicationInfo
@@ -82,33 +84,52 @@ class NativeLauncher(
             acquire()
         }
 
+        var proc: Process? = null
+        var logThread: Thread? = null
         try {
             val pb = ProcessBuilder(command).apply {
                 environment().putAll(env)
                 redirectErrorStream(true)
             }
-            val proc = pb.start()
+            proc = pb.start()
             process = proc
 
             // Pipe output to log file in background
-            val logThread = Thread({
-                BufferedReader(InputStreamReader(proc.inputStream, Charsets.UTF_8)).use { reader ->
-                    java.io.FileOutputStream(logFile, true).buffered().use { out ->
-                        reader.forEachLine { line ->
-                            out.write(line.toByteArray(Charsets.UTF_8))
-                            out.write('\n'.code)
+            logThread = Thread({
+                try {
+                    BufferedReader(InputStreamReader(proc.inputStream, Charsets.UTF_8)).use { reader ->
+                        java.io.FileOutputStream(logFile, true).buffered().use { out ->
+                            reader.forEachLine { line ->
+                                out.write(line.toByteArray(Charsets.UTF_8))
+                                out.write('\n'.code)
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    // Stream closed when process died/destroyed; ignore.
                 }
-            }, "syncthing-logger")
-            logThread.isDaemon = true
-            logThread.start()
+            }, "syncthing-logger").apply {
+                isDaemon = true
+                start()
+            }
 
             val exitCode = proc.waitFor()
             logThread.join(2_000)
             Log.i(TAG, "Syncthing exited with code $exitCode")
             exitCode
         } finally {
+            // If we're bailing due to cancellation/throw and the child is still alive,
+            // kill it so we don't leak the OS process + pipes.
+            val p = proc
+            if (p != null && p.isAlive) {
+                try {
+                    p.destroyForcibly()
+                    p.waitFor(2, TimeUnit.SECONDS)
+                } catch (e: Exception) {
+                    Log.w(TAG, "destroyForcibly failed", e)
+                }
+            }
+            logThread?.interrupt()
             process = null
             if (multicastLock.isHeld) {
                 multicastLock.release()
@@ -153,48 +174,48 @@ class NativeLauncher(
     /**
      * Runs `syncthing generate` to create initial config, keys, and cert.
      */
-    suspend fun generateConfig(): String = withContext(Dispatchers.IO) {
-        check(binaryPath.exists()) { "Binary missing: $binaryPath" }
-        val command = listOf(
-            binaryPath.absolutePath,
-            "generate",
-            "--home=${configDir.absolutePath}",
-        )
-        val pb = ProcessBuilder(command).apply {
-            environment()["HOME"] = configDir.absolutePath
-            redirectErrorStream(true)
-        }
-        val proc = pb.start()
-        val output = proc.inputStream.bufferedReader(Charsets.UTF_8).readText()
-        val exitCode = proc.waitFor()
-        if (exitCode != 0) {
-            error("syncthing generate failed (exit $exitCode): $output")
-        }
-        output
-    }
+    suspend fun generateConfig(): String = runOneShot(
+        args = listOf("generate", "--home=${configDir.absolutePath}"),
+        label = "syncthing generate",
+    )
 
     /**
      * Runs `syncthing device-id` to retrieve local device ID.
      */
-    suspend fun getDeviceId(): String = withContext(Dispatchers.IO) {
-        check(binaryPath.exists()) { "Binary missing: $binaryPath" }
-        val command = listOf(
-            binaryPath.absolutePath,
-            "device-id",
-            "--home=${configDir.absolutePath}",
-        )
-        val pb = ProcessBuilder(command).apply {
-            environment()["HOME"] = configDir.absolutePath
-            redirectErrorStream(true)
+    suspend fun getDeviceId(): String = runOneShot(
+        args = listOf("device-id", "--home=${configDir.absolutePath}"),
+        label = "syncthing device-id",
+    ).trim()
+
+    /**
+     * Runs a one-shot syncthing command with bounded timeout and guaranteed cleanup.
+     * Used for `generate` and `device-id`. A hung subprocess here would otherwise
+     * stall the foreground-service startup path and trigger ANR.
+     */
+    private suspend fun runOneShot(args: List<String>, label: String): String =
+        withContext(Dispatchers.IO) {
+            check(binaryPath.exists()) { "Binary missing: $binaryPath" }
+            val pb = ProcessBuilder(listOf(binaryPath.absolutePath) + args).apply {
+                environment()["HOME"] = configDir.absolutePath
+                redirectErrorStream(true)
+            }
+            val proc = pb.start()
+            try {
+                val output = proc.inputStream.bufferedReader(Charsets.UTF_8).readText()
+                if (!proc.waitFor(ONESHOT_TIMEOUT_SEC, TimeUnit.SECONDS)) {
+                    error("$label timed out after ${ONESHOT_TIMEOUT_SEC}s")
+                }
+                val exitCode = proc.exitValue()
+                if (exitCode != 0) {
+                    error("$label failed (exit $exitCode): $output")
+                }
+                output
+            } finally {
+                if (proc.isAlive) {
+                    proc.destroyForcibly()
+                }
+            }
         }
-        val proc = pb.start()
-        val output = proc.inputStream.bufferedReader(Charsets.UTF_8).readText().trim()
-        val exitCode = proc.waitFor()
-        if (exitCode != 0) {
-            error("syncthing device-id failed (exit $exitCode): $output")
-        }
-        output
-    }
 
     private fun buildEnvironment(): Map<String, String> = buildMap {
         put("HOME", configDir.absolutePath)
@@ -234,10 +255,28 @@ class NativeLauncher(
     private fun trimLogFile() {
         if (!logFile.exists()) return
         try {
-            val lines = logFile.readLines()
-            if (lines.size > LOG_MAX_LINES) {
-                val trimmed = lines.takeLast(LOG_MAX_LINES)
-                logFile.writeText(trimmed.joinToString("\n") + "\n")
+            // Stream with a ring buffer to avoid loading multi-MB logs into memory.
+            val ring = ArrayDeque<String>(LOG_MAX_LINES + 1)
+            var total = 0
+            logFile.bufferedReader(Charsets.UTF_8).useLines { seq ->
+                for (line in seq) {
+                    total++
+                    ring.addLast(line)
+                    if (ring.size > LOG_MAX_LINES) ring.removeFirst()
+                }
+            }
+            if (total <= LOG_MAX_LINES) return
+            val temp = File(logFile.parentFile, "${logFile.name}.trim")
+            temp.bufferedWriter(Charsets.UTF_8).use { out ->
+                for (line in ring) {
+                    out.write(line)
+                    out.write("\n")
+                }
+            }
+            if (!temp.renameTo(logFile)) {
+                // Best-effort: fall back to overwrite; delete temp to avoid litter.
+                logFile.writeText(ring.joinToString("\n") + "\n")
+                temp.delete()
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to trim log file", e)

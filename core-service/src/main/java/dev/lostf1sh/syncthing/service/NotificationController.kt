@@ -21,6 +21,7 @@ class NotificationController(private val context: Context) {
         private const val ID_CRASH = 9
         private const val CHANNEL_PERSISTENT = "syncthing_persistent"
         private const val CHANNEL_INFO = "syncthing_info"
+        const val CHANNEL_EVENTS = "syncthing_events"
     }
 
     private val notificationManager =
@@ -53,7 +54,17 @@ class NotificationController(private val context: Context) {
             setShowBadge(true)
         }
 
-        notificationManager.createNotificationChannels(listOf(persistent, info))
+        val events = NotificationChannel(
+            CHANNEL_EVENTS,
+            "Syncthing Events",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            enableVibration(false)
+            setSound(null, null)
+            setShowBadge(true)
+        }
+
+        notificationManager.createNotificationChannels(listOf(persistent, info, events))
     }
 
     fun buildPersistentNotification(state: RunState): Notification {

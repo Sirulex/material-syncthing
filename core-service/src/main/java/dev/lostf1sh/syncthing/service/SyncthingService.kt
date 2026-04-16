@@ -16,11 +16,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 
 class SyncthingService : Service() {
 
@@ -61,13 +64,22 @@ class SyncthingService : Service() {
 
     override fun onDestroy() {
         Log.i(TAG, "Service destroying")
-        syncthingJob?.cancel()
-        syncthingJob = null
-        CoroutineScope(Dispatchers.IO).launch {
-            if (launcher.isRunning) {
-                launcher.stop()
+        // Kill binary synchronously BEFORE cancelling the coroutine that holds waitFor().
+        // Process.waitFor() is not cancellable by coroutine cancel, so the coroutine
+        // would otherwise race with an unrelated scope and orphan the native process.
+        if (::launcher.isInitialized && launcher.isRunning) {
+            try {
+                runBlocking {
+                    withTimeout(5_000) { launcher.stop() }
+                }
+            } catch (e: TimeoutCancellationException) {
+                Log.w(TAG, "Stop timed out; binary may be orphaned", e)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error stopping binary in onDestroy", e)
             }
         }
+        syncthingJob?.cancel()
+        syncthingJob = null
         _state.value = RunState.Stopped
         serviceScope.cancel()
         super.onDestroy()
@@ -108,10 +120,13 @@ class SyncthingService : Service() {
                         stopSelf()
                     }
                     is RunState.Starting -> {
-                        // Exit code 3 = restart requested
+                        // Exit code 3 = restart requested. Schedule on Main so the
+                        // current job unwinds before startSyncthing() mutates job state.
                         Log.i(TAG, "Restart requested by Syncthing")
-                        syncthingJob = null
-                        startSyncthing()
+                        serviceScope.launch(Dispatchers.Main) {
+                            syncthingJob = null
+                            startSyncthing()
+                        }
                     }
                     else -> stopSelf()
                 }

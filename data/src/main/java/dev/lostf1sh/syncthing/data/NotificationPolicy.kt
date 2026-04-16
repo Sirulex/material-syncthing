@@ -14,6 +14,8 @@ class NotificationPolicy(private val context: Context) {
 
     companion object {
         private const val TAG = "NotificationPolicy"
+        // Must match NotificationController.CHANNEL_EVENTS (core-service).
+        // Duplicated to avoid data→service dependency.
         private const val CHANNEL_EVENTS = "syncthing_events"
         private const val THROTTLE_MS = 30_000L
         private const val ID_SYNC_COMPLETE = 100

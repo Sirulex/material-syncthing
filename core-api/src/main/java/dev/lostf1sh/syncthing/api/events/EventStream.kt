@@ -2,6 +2,7 @@
 // Rewritten as Kotlin Flow with long-polling, replaces Runnable + Handler pattern.
 package dev.lostf1sh.syncthing.api.events
 
+import android.util.Log
 import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.dto.Event
 import kotlinx.coroutines.currentCoroutineContext
@@ -10,6 +11,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -22,6 +24,7 @@ import kotlinx.serialization.json.jsonPrimitive
 class EventStream(private val client: SyncthingClient) {
 
     companion object {
+        private const val TAG = "EventStream"
         private const val BACKOFF_MS = 2_000L
         private const val SERVER_TIMEOUT_SEC = 60
     }
@@ -32,12 +35,26 @@ class EventStream(private val client: SyncthingClient) {
             try {
                 val batch = client.events(since = since, timeout = SERVER_TIMEOUT_SEC)
                 for (raw in batch) {
-                    val event = parse(raw)
+                    val event = try {
+                        parse(raw)
+                    } catch (e: Exception) {
+                        // Malformed individual event: log, advance `since`, and skip.
+                        // Keeps the stream alive when Syncthing adds/changes event shapes.
+                        Log.w(TAG, "Skipping unparseable event id=${raw.id} type=${raw.type}", e)
+                        SyncthingEvent.Unknown(raw.id, raw.time, raw.type)
+                    }
                     emit(event)
                     if (raw.id > since) since = raw.id
                 }
+            } catch (e: SerializationException) {
+                // Whole-batch decode failure. Log and back off; don't let one schema
+                // drift kill the stream forever.
+                currentCoroutineContext().ensureActive()
+                Log.w(TAG, "Event batch deserialization failed; backing off", e)
+                delay(BACKOFF_MS)
             } catch (e: Exception) {
                 currentCoroutineContext().ensureActive()
+                Log.d(TAG, "Event poll error: ${e.message}")
                 delay(BACKOFF_MS)
             }
         }

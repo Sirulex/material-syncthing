@@ -29,6 +29,13 @@ class BootReceiver : BroadcastReceiver() {
         val serviceIntent = Intent(context, SyncthingService::class.java).apply {
             action = SyncthingService.ACTION_START
         }
-        ContextCompat.startForegroundService(context, serviceIntent)
+        try {
+            ContextCompat.startForegroundService(context, serviceIntent)
+        } catch (e: Exception) {
+            // Android 14+ may throw ForegroundServiceStartNotAllowedException when
+            // starting a data-sync FGS from a background broadcast. Log and move on;
+            // the user can launch the app manually.
+            Log.w(TAG, "Could not start foreground service from boot", e)
+        }
     }
 }

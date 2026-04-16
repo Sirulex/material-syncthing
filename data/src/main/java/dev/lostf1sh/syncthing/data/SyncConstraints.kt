@@ -76,8 +76,10 @@ class SyncConstraints(private val context: Context) {
             return ConstraintState.ShouldPause("Wi-Fi required")
         }
 
-        if (wifiOnly && network.isMetered && !allowMetered) {
-            return ConstraintState.ShouldPause("Metered Wi-Fi")
+        // Metered check applies on any transport, not just Wi-Fi. Cellular is
+        // almost always metered, and allowMetered is the user's opt-in for it.
+        if (network.isMetered && !allowMetered) {
+            return ConstraintState.ShouldPause("Metered connection")
         }
 
         return ConstraintState.ShouldRun

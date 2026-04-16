@@ -10,6 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -96,7 +98,12 @@ fun AddDeviceScreen(
                             )
                         }
                     },
-                    icon = { },
+                    icon = {
+                        Icon(
+                            if (isValid) Icons.Default.Check else Icons.Default.Add,
+                            contentDescription = null,
+                        )
+                    },
                     text = { Text(if (isValid) "Add Device" else "Enter Valid ID") },
                 )
             }
@@ -119,7 +126,13 @@ fun AddDeviceScreen(
 
             OutlinedTextField(
                 value = deviceId,
-                onValueChange = { deviceId = it },
+                onValueChange = { raw ->
+                    // Sanitize pasted/typed input: strip whitespace, zero-width chars,
+                    // normalize unicode dashes, uppercase. Also harvests a valid-looking
+                    // ID out of surrounding text on paste (e.g. "My ID: MFZWI…").
+                    val cleaned = DeviceIdValidator.sanitize(raw).uppercase()
+                    deviceId = DeviceIdValidator.extract(cleaned) ?: cleaned
+                },
                 label = { Text("Device ID") },
                 placeholder = { Text("XXXXXXX-XXXXXXX-XXXXXXX-...") },
                 isError = deviceId.isNotBlank() && !isValid,

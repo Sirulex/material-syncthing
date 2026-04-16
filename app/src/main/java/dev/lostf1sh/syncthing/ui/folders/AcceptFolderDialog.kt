@@ -42,6 +42,22 @@ data class PendingFolderUi(
     val offeredByName: String,
 )
 
+/**
+ * Basic defensive check on user-entered destination paths.
+ * Rejects empty strings, control characters, and paths that don't live under
+ * something sensible — callers may tighten this further (e.g. must be under
+ * the external storage root or an app-specific directory).
+ */
+private fun isAcceptableFolderPath(path: String): Boolean {
+    val trimmed = path.trim()
+    if (trimmed.isEmpty()) return false
+    if (trimmed.any { it.isISOControl() }) return false
+    if (!trimmed.startsWith("/")) return false
+    // Block obvious attempts at traversal out of the chosen root.
+    if (trimmed.contains("..")) return false
+    return true
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AcceptFolderDialog(
@@ -98,12 +114,21 @@ fun AcceptFolderDialog(
                 style = MaterialTheme.typography.labelLarge,
             )
             Spacer(Modifier.height(4.dp))
+            val pathValid = isAcceptableFolderPath(selectedPath)
             OutlinedTextField(
                 value = selectedPath,
-                onValueChange = { selectedPath = it },
+                onValueChange = { raw ->
+                    // Strip control chars / newlines; user-entered paths should
+                    // not contain them and they break the native config parser.
+                    selectedPath = raw.filter { !it.isISOControl() }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodySmall,
+                isError = !pathValid,
+                supportingText = if (!pathValid) {
+                    { Text("Choose an absolute path that you control.") }
+                } else null,
             )
             Spacer(Modifier.height(8.dp))
             FilledTonalButton(
@@ -131,9 +156,10 @@ fun AcceptFolderDialog(
                 Spacer(Modifier.size(8.dp))
                 // Expressive primary CTA — shape morph on press
                 Button(
-                    onClick = { onAccept(selectedPath) },
+                    onClick = { onAccept(selectedPath.trim()) },
                     shapes = ButtonDefaults.shapes(),
                     modifier = Modifier.weight(1f),
+                    enabled = pathValid,
                 ) { Text("Accept") }
             }
 

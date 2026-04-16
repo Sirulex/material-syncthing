@@ -36,6 +36,9 @@ class SyncthingClient(
     }
 
     private val http = httpClient ?: HttpClient(OkHttp) {
+        // Turn non-2xx responses into ResponseException so mutating calls
+        // (addFolder, pauseDevice, …) don't silently swallow 4xx/5xx.
+        expectSuccess = true
         defaultRequest {
             url(baseUrl)
             header("X-API-Key", apiKey)

@@ -3,9 +3,12 @@ package dev.lostf1sh.syncthing.data
 import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
 
 class FolderRepository(private val client: SyncthingClient) {
 
@@ -18,15 +21,19 @@ class FolderRepository(private val client: SyncthingClient) {
     suspend fun updateFolder(folder: Folder) = client.updateFolder(folder)
 
     fun observeFolders(intervalMs: Long = 3_000): Flow<List<Folder>> = flow {
-        while (true) {
-            try { emit(client.folders()) } catch (_: Exception) { }
+        while (currentCoroutineContext().isActive) {
+            try { emit(client.folders()) }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { }
             delay(intervalMs)
         }
     }
 
     fun observeFolderStatus(folderId: String, intervalMs: Long = 3_000): Flow<FolderStatus> = flow {
-        while (true) {
-            try { emit(client.folderStatus(folderId)) } catch (_: Exception) { }
+        while (currentCoroutineContext().isActive) {
+            try { emit(client.folderStatus(folderId)) }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { }
             delay(intervalMs)
         }
     }

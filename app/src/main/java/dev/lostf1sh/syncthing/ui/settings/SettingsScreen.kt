@@ -26,9 +26,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -49,14 +49,15 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     // Collect all settings as state
-    val runOnBoot by settingsStore?.runOnBoot?.collectAsState(initial = false) ?: return
-    val wifiOnly by settingsStore.wifiOnly.collectAsState(initial = false)
-    val allowMetered by settingsStore.allowMetered.collectAsState(initial = true)
-    val chargingOnly by settingsStore.chargingOnly.collectAsState(initial = false)
-    val respectBatterySaver by settingsStore.respectBatterySaver.collectAsState(initial = true)
-    val notifySyncComplete by settingsStore.notifySyncComplete.collectAsState(initial = true)
-    val notifyDeviceConnected by settingsStore.notifyDeviceConnected.collectAsState(initial = false)
-    val notifyErrors by settingsStore.notifyErrors.collectAsState(initial = true)
+    val runOnBoot by settingsStore?.runOnBoot?.collectAsStateWithLifecycle(initialValue = false)
+        ?: return
+    val wifiOnly by settingsStore.wifiOnly.collectAsStateWithLifecycle(initialValue = false)
+    val allowMetered by settingsStore.allowMetered.collectAsStateWithLifecycle(initialValue = true)
+    val chargingOnly by settingsStore.chargingOnly.collectAsStateWithLifecycle(initialValue = false)
+    val respectBatterySaver by settingsStore.respectBatterySaver.collectAsStateWithLifecycle(initialValue = true)
+    val notifySyncComplete by settingsStore.notifySyncComplete.collectAsStateWithLifecycle(initialValue = true)
+    val notifyDeviceConnected by settingsStore.notifyDeviceConnected.collectAsStateWithLifecycle(initialValue = false)
+    val notifyErrors by settingsStore.notifyErrors.collectAsStateWithLifecycle(initialValue = true)
 
     Scaffold(
         topBar = {
