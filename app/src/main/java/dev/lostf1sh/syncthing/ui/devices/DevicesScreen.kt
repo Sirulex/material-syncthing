@@ -54,6 +54,7 @@ fun DevicesScreen(
     onAddDevice: (() -> Unit)? = null,
     onScanQr: (() -> Unit)? = null,
     onRefresh: (suspend () -> Unit)? = null,
+    localDeviceId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     if (devices.isEmpty()) {
@@ -99,6 +100,7 @@ fun DevicesScreen(
                     DeviceCard(
                         device = device,
                         isConnected = connections[device.deviceID] == true,
+                        isLocal = device.deviceID == localDeviceId,
                         onClick = { onDeviceClick(device.deviceID) },
                     )
                 }
@@ -149,6 +151,7 @@ fun DevicesScreen(
 private fun DeviceCard(
     device: Device,
     isConnected: Boolean,
+    isLocal: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -189,19 +192,24 @@ private fun DeviceCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = device.name.ifBlank { device.deviceID.take(7) },
+                    text = if (isLocal) "Your Device"
+                    else device.name.ifBlank { device.deviceID.take(7) },
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = if (isConnected) "Connected" else "Disconnected",
+                    text = when {
+                        isLocal -> device.name.ifBlank { device.deviceID.take(7) }
+                        isConnected -> "Connected"
+                        else -> "Disconnected"
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isConnected) MaterialTheme.colorScheme.primary
+                    color = if (isConnected || isLocal) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
-            // Connection dot
-            if (isConnected) {
+            // Connection dot (suppress for the local device — it's always "present")
+            if (isConnected && !isLocal) {
                 androidx.compose.foundation.Canvas(
                     modifier = Modifier.size(8.dp)
                 ) {

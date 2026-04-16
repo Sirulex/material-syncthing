@@ -53,6 +53,7 @@ fun HomeScreen(
     onOverviewClick: () -> Unit = {},
     onRefresh: (suspend () -> Unit)? = null,
     health: SyncHealth? = null,
+    localDeviceId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by SyncthingService.state.collectAsStateWithLifecycle()
@@ -125,6 +126,7 @@ fun HomeScreen(
                         onAddDevice = onAddDevice,
                         onScanQr = onScanQr,
                         onRefresh = onRefresh,
+                        localDeviceId = localDeviceId,
                     )
                 }
             }

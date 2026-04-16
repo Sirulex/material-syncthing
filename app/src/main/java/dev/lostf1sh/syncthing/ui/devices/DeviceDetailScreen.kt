@@ -60,8 +60,10 @@ fun DeviceDetailScreen(
     onPause: ((String) -> Unit)? = null,
     onResume: ((String) -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
+    localDeviceId: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val isLocal = device != null && device.deviceID == localDeviceId
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showDeleteDialog by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
@@ -70,7 +72,12 @@ fun DeviceDetailScreen(
         topBar = {
             // Expressive: MediumFlexibleTopAppBar
             MediumFlexibleTopAppBar(
-                title = { Text(device?.name?.ifBlank { device.deviceID.take(7) } ?: "Device") },
+                title = {
+                    Text(
+                        if (isLocal) "Your Device"
+                        else device?.name?.ifBlank { device.deviceID.take(7) } ?: "Device"
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = onBack,
@@ -155,7 +162,12 @@ fun DeviceDetailScreen(
             )
             ListItem(
                 headlineContent = { Text("Name") },
-                supportingContent = { Text(device.name.ifBlank { "(unnamed)" }) },
+                supportingContent = {
+                    Text(
+                        if (isLocal) "${device.name.ifBlank { "(unnamed)" }} — Your Device"
+                        else device.name.ifBlank { "(unnamed)" }
+                    )
+                },
             )
             ListItem(
                 headlineContent = { Text("Addresses") },
@@ -199,7 +211,8 @@ fun DeviceDetailScreen(
                 )
             }
 
-            if (onRemove != null) {
+            // Can't remove the local device from itself.
+            if (onRemove != null && !isLocal) {
                 Spacer(Modifier.height(24.dp))
                 OutlinedButton(
                     onClick = { showDeleteDialog = true },

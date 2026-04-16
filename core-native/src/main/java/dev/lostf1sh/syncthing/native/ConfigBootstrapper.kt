@@ -125,17 +125,29 @@ class ConfigBootstrapper(private val configDir: File) {
 
     private fun parseConfig(): org.w3c.dom.Document {
         val factory = DocumentBuilderFactory.newInstance().apply {
-            // Defense-in-depth against XXE. config.xml is local but still lives in
-            // a path that could in theory be tampered with via backup restore.
-            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            isXIncludeAware = false
-            isExpandEntityReferences = false
+            // Defense-in-depth against XXE. config.xml is local but still lives
+            // in a path that could in theory be tampered with via backup restore.
+            // Android's bundled Harmony parser doesn't recognize all of these
+            // feature URIs, so swallow ParserConfigurationException per feature
+            // — the ones it DOES support still get applied.
+            trySetFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+            trySetFeature("http://xml.org/sax/features/external-general-entities", false)
+            trySetFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            trySetFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            // Harmony parser throws UnsupportedOperationException for these too.
+            try { isXIncludeAware = false } catch (_: UnsupportedOperationException) { }
+            try { isExpandEntityReferences = false } catch (_: UnsupportedOperationException) { }
         }
         val builder = factory.newDocumentBuilder()
         return configFile.inputStream().use { builder.parse(it) }
+    }
+
+    private fun DocumentBuilderFactory.trySetFeature(name: String, value: Boolean) {
+        try {
+            setFeature(name, value)
+        } catch (e: Exception) {
+            Log.d(TAG, "XML parser doesn't support $name: ${e.message}")
+        }
     }
 
     private fun setElement(

@@ -64,6 +64,7 @@ fun AppNavigation() {
     val folderStatuses = remember { mutableStateMapOf<String, dev.lostf1sh.syncthing.api.dto.FolderStatus>() }
     var health by remember { mutableStateOf<SyncHealth?>(null) }
     var issues by remember { mutableStateOf(emptyList<SyncIssue>()) }
+    var localDeviceId by remember { mutableStateOf<String?>(null) }
 
     // Fetch data when service is running
     LaunchedEffect(serviceState) {
@@ -71,6 +72,14 @@ fun AppNavigation() {
         val app = navController.context.applicationContext as SyncthingApp
         app.container.initClient(running.apiKey, running.port)
         val container = app.container
+
+        // Identify the local device so the UI can label it "Your Device".
+        // myID is stable for the lifetime of the Syncthing process.
+        launch {
+            try {
+                localDeviceId = container.systemRepository?.status()?.myID
+            } catch (_: Exception) { }
+        }
 
         // Initial fetch
         launch {
@@ -295,6 +304,7 @@ fun AppNavigation() {
                     } catch (_: Exception) { }
                 },
                 health = health,
+                localDeviceId = localDeviceId,
             )
         }
         composable<FolderRoute> { backStackEntry ->
@@ -408,6 +418,7 @@ fun AppNavigation() {
                         navController.popBackStack()
                     }
                 },
+                localDeviceId = localDeviceId,
             )
         }
         composable<AddDeviceRoute> { backStackEntry ->
