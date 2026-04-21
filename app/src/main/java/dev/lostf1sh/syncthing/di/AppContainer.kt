@@ -28,6 +28,7 @@ class AppContainer(private val appContext: Context) {
     val settingsStore = SettingsStore(appContext)
     val syncConstraints = SyncConstraints(appContext)
     val appState = AppState()
+    private val notificationPolicy = NotificationPolicy(appContext)
 
     /** Process-scope for collectors; survives Activity/Compose lifecycles. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -112,9 +113,23 @@ class AppContainer(private val appContext: Context) {
         // Event stream — live state/device/config updates.
         h.eventRepository.start(this)
 
+        // Forward all events to the notification policy.
+        launch {
+            h.eventRepository.events.collect { event ->
+                notificationPolicy.onEvent(event)
+            }
+        }
+
         launch {
             h.eventRepository.allFolderStates().collect { (folderId, state) ->
                 appState.updateFolderState(folderId, state)
+            }
+        }
+
+        launch {
+            h.eventRepository.pendingDevicesChanged().collect {
+                try { appState.setPendingDevices(h.client.pendingDevices()) }
+                catch (_: Exception) { }
             }
         }
 
@@ -208,12 +223,18 @@ class AppContainer(private val appContext: Context) {
             else ConflictDetector.scan(folder.id, folder.path)
         }
         appState.setConflicts(all)
+        if (all.isNotEmpty()) {
+            notificationPolicy.updateFolderLabels(folders.associate { it.id to it.label.ifBlank { it.id } })
+            notificationPolicy.onConflictsDetected(all)
+        }
     }
 
     private suspend fun refreshConfig(h: ClientHandles) {
         try {
-            appState.setFolders(h.folderRepository.folders())
+            val folders = h.folderRepository.folders()
+            appState.setFolders(folders)
             appState.setDevices(h.deviceRepository.devices())
+            notificationPolicy.updateFolderLabels(folders.associate { it.id to it.label.ifBlank { it.id } })
         } catch (_: Exception) { }
     }
 
@@ -223,6 +244,7 @@ class AppContainer(private val appContext: Context) {
             val devices = h.deviceRepository.devices()
             appState.setFolders(folders)
             appState.setDevices(devices)
+            notificationPolicy.updateFolderLabels(folders.associate { it.id to it.label.ifBlank { it.id } })
 
             val statuses = mutableMapOf<String, dev.lostf1sh.syncthing.api.dto.FolderStatus>()
             for (folder in folders) {
@@ -252,6 +274,10 @@ class AppContainer(private val appContext: Context) {
 
         try {
             appState.setPendingFolders(h.client.pendingFolders())
+        } catch (_: Exception) { }
+
+        try {
+            appState.setPendingDevices(h.client.pendingDevices())
         } catch (_: Exception) { }
     }
 }

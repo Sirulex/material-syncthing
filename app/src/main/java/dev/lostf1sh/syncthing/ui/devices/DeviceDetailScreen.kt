@@ -49,6 +49,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
 import dev.lostf1sh.syncthing.api.dto.Device
+import dev.lostf1sh.syncthing.api.dto.PendingDevice
 import dev.lostf1sh.syncthing.ui.core.components.DetailSkeleton
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -56,6 +57,7 @@ import dev.lostf1sh.syncthing.ui.core.components.DetailSkeleton
 fun DeviceDetailScreen(
     device: Device?,
     connection: ConnectionInfo?,
+    pendingDevices: Map<String, PendingDevice> = emptyMap(),
     onBack: () -> Unit,
     onPause: ((String) -> Unit)? = null,
     onResume: ((String) -> Unit)? = null,
@@ -195,8 +197,14 @@ fun DeviceDetailScreen(
                 )
                 ListItem(
                     headlineContent = { Text("Type") },
-                    supportingContent = { Text(connection.type) },
+                    supportingContent = { Text(connectionTypeLabel(connection.type)) },
                 )
+                if (connection.latencyMs > 0) {
+                    ListItem(
+                        headlineContent = { Text("Latency") },
+                        supportingContent = { Text("%.1f ms".format(connection.latencyMs)) },
+                    )
+                }
                 ListItem(
                     headlineContent = { Text("Client Version") },
                     supportingContent = { Text(connection.clientVersion) },
@@ -209,6 +217,32 @@ fun DeviceDetailScreen(
                     headlineContent = { Text("Uploaded") },
                     supportingContent = { Text(formatBytes(connection.outBytesTotal)) },
                 )
+            }
+
+            if (pendingDevices.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "Discovery",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                Text(
+                    text = "${pendingDevices.size} device(s) awaiting approval",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                pendingDevices.forEach { (id, info) ->
+                    ListItem(
+                        headlineContent = { Text(info.name.ifBlank { id.take(7) }) },
+                        supportingContent = {
+                            Text(
+                                "${info.address} · ${formatRecentTime(info.time)}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        },
+                    )
+                }
             }
 
             // Can't remove the local device from itself.
@@ -247,6 +281,29 @@ fun DeviceDetailScreen(
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
             },
         )
+    }
+}
+
+private fun connectionTypeLabel(type: String): String = when (type) {
+    "relay-client", "relay-server" -> "Relay"
+    "tcp-client", "tcp-server" -> "TCP (direct)"
+    "quic-client", "quic-server" -> "QUIC (direct)"
+    "direct" -> "Direct"
+    else -> type.replaceFirstChar { it.uppercase() }
+}
+
+private fun formatRecentTime(isoTime: String): String {
+    return try {
+        val t = isoTime.indexOf('T')
+        if (t >= 0) {
+            val time = isoTime.substring(t + 1, (t + 6).coerceAtMost(isoTime.length))
+            val date = isoTime.substring(0, t)
+            "$date $time"
+        } else {
+            isoTime
+        }
+    } catch (_: Exception) {
+        isoTime
     }
 }
 

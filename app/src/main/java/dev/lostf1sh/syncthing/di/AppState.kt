@@ -4,6 +4,7 @@ import dev.lostf1sh.syncthing.api.dto.Connections
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
+import dev.lostf1sh.syncthing.api.dto.PendingDevice
 import dev.lostf1sh.syncthing.api.dto.PendingFolder
 import dev.lostf1sh.syncthing.api.dto.DeviceStats
 import dev.lostf1sh.syncthing.api.dto.FolderStats
@@ -63,6 +64,9 @@ class AppState {
     private val _pendingFolders = MutableStateFlow<Map<String, PendingFolder>>(emptyMap())
     val pendingFolders: StateFlow<Map<String, PendingFolder>> = _pendingFolders.asStateFlow()
 
+    private val _pendingDevices = MutableStateFlow<Map<String, PendingDevice>>(emptyMap())
+    val pendingDevices: StateFlow<Map<String, PendingDevice>> = _pendingDevices.asStateFlow()
+
     private val _bandwidthHistory = MutableStateFlow<List<BandwidthSample>>(emptyList())
     val bandwidthHistory: StateFlow<List<BandwidthSample>> = _bandwidthHistory.asStateFlow()
 
@@ -91,6 +95,7 @@ class AppState {
     fun setConflicts(list: List<ConflictItem>) { _conflicts.value = list }
     fun setLocalDeviceId(id: String?) { _localDeviceId.value = id }
     fun setPendingFolders(map: Map<String, PendingFolder>) { _pendingFolders.value = map }
+    fun setPendingDevices(map: Map<String, PendingDevice>) { _pendingDevices.value = map }
     fun setFolderStats(map: Map<String, FolderStats>) { _folderStats.value = map }
     fun setDeviceStats(map: Map<String, DeviceStats>) { _deviceStats.value = map }
 
@@ -127,6 +132,7 @@ class AppState {
         _issues.value = emptyList()
         _conflicts.value = emptyList()
         _pendingFolders.value = emptyMap()
+        _pendingDevices.value = emptyMap()
         _bandwidthHistory.value = emptyList()
         _folderStats.value = emptyMap()
         _deviceStats.value = emptyMap()

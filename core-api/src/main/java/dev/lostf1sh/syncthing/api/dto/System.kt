@@ -43,6 +43,7 @@ data class ConnectionInfo(
     val paused: Boolean = false,
     val startedAt: String = "",
     val type: String = "",
+    val latencyMs: Double = 0.0,
 )
 
 @Serializable

@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,6 +65,9 @@ fun FolderDetailScreen(
     onRescan: ((String) -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
     onBrowse: ((String) -> Unit)? = null,
+    wifiOnly: Boolean = false,
+    chargingOnly: Boolean = false,
+    onConditionsChanged: ((Boolean, Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -219,6 +224,39 @@ fun FolderDetailScreen(
                 headlineContent = { Text("Shared Devices") },
                 supportingContent = { Text("${folder.devices.size} device(s)") },
             )
+
+            if (onConditionsChanged != null) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "Sync Conditions",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                ListItem(
+                    headlineContent = { Text("Wi-Fi only") },
+                    supportingContent = { Text("Pause this folder when not on Wi-Fi") },
+                    leadingContent = { Icon(Icons.Default.Wifi, null) },
+                    trailingContent = {
+                        ToggleButton(
+                            checked = wifiOnly,
+                            onCheckedChange = { onConditionsChanged(it, chargingOnly) },
+                            shapes = ToggleButtonDefaults.shapes(),
+                        ) { }
+                    },
+                )
+                ListItem(
+                    headlineContent = { Text("Charging only") },
+                    supportingContent = { Text("Pause this folder when not charging") },
+                    leadingContent = { Icon(Icons.Default.BatteryChargingFull, null) },
+                    trailingContent = {
+                        ToggleButton(
+                            checked = chargingOnly,
+                            onCheckedChange = { onConditionsChanged(wifiOnly, it) },
+                            shapes = ToggleButtonDefaults.shapes(),
+                        ) { }
+                    },
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
 

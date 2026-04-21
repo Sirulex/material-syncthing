@@ -38,6 +38,9 @@ import dev.lostf1sh.syncthing.ui.folders.PendingFolderUi
 import dev.lostf1sh.syncthing.ui.folders.appendIgnorePattern
 import dev.lostf1sh.syncthing.api.dto.BrowseEntry
 import dev.lostf1sh.syncthing.data.ConflictResolver
+import dev.lostf1sh.syncthing.data.FolderCondition
+import dev.lostf1sh.syncthing.data.parseFolderConditions
+import dev.lostf1sh.syncthing.data.serializeFolderConditions
 import dev.lostf1sh.syncthing.ui.errors.ConflictScreen
 import dev.lostf1sh.syncthing.ui.errors.ErrorCenterScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
@@ -85,6 +88,9 @@ fun AppNavigation(
     val folderStats by appState.folderStats.collectAsStateWithLifecycle()
     val deviceStats by appState.deviceStats.collectAsStateWithLifecycle()
     val recentChanges by appState.recentChanges.collectAsStateWithLifecycle()
+    val pendingDevices by appState.pendingDevices.collectAsStateWithLifecycle()
+    val folderConditionsRaw by container.settingsStore.folderConditions.collectAsStateWithLifecycle(initialValue = "{}")
+    val folderConditions = remember(folderConditionsRaw) { parseFolderConditions(folderConditionsRaw) }
 
     // Boot the collector loop when the service is Running. Tear down only on
     // terminal states — keep caches warm during transient Paused/Starting so a
@@ -319,6 +325,8 @@ fun AppNavigation(
                 }
             }
 
+            val folderId = route.id
+            val currentConditions = folderConditions[folderId]
             FolderDetailScreen(
                 folder = folder,
                 status = status,
@@ -344,8 +352,16 @@ fun AppNavigation(
                         navController.popBackStack()
                     }
                 },
-                onBrowse = { id ->
-                    navController.navigate(FolderBrowserRoute(folderId = id, prefix = ""))
+                onBrowse = { navController.navigate(FolderBrowserRoute(it)) },
+                wifiOnly = currentConditions?.wifiOnly ?: false,
+                chargingOnly = currentConditions?.chargingOnly ?: false,
+                onConditionsChanged = { wifi, charging ->
+                    scope.launch {
+                        val updated = folderConditions.toMutableMap().apply {
+                            put(folderId, FolderCondition(wifi, charging))
+                        }
+                        container.settingsStore.setFolderConditions(serializeFolderConditions(updated))
+                    }
                 },
             )
         }
@@ -474,6 +490,7 @@ fun AppNavigation(
             DeviceDetailScreen(
                 device = device,
                 connection = connection,
+                pendingDevices = pendingDevices,
                 onBack = { navController.popBackStack() },
                 onPause = { id ->
                     scope.launch {

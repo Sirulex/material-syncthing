@@ -84,4 +84,9 @@ class EventRepository(private val eventStream: EventStream) {
     fun recentChanges(): Flow<SyncthingEvent.ItemFinished> = events
         .filter { it is SyncthingEvent.ItemFinished }
         .map { it as SyncthingEvent.ItemFinished }
+
+    /** Pending devices changed events. */
+    fun pendingDevicesChanged(): Flow<SyncthingEvent.PendingDevicesChanged> = events
+        .filter { it is SyncthingEvent.PendingDevicesChanged }
+        .map { it as SyncthingEvent.PendingDevicesChanged }
 }

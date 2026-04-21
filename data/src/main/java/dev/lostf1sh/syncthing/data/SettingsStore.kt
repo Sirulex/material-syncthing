@@ -37,6 +37,14 @@ class SettingsStore(private val context: Context) {
     // Sync profiles
     val activeProfile: Flow<String> = pref(Keys.ACTIVE_PROFILE, "default")
 
+    // Scheduler (time range when syncing is allowed)
+    val schedulerEnabled: Flow<Boolean> = pref(Keys.SCHEDULER_ENABLED, false)
+    val schedulerStartHour: Flow<Int> = pref(Keys.SCHEDULER_START_HOUR, 23)
+    val schedulerEndHour: Flow<Int> = pref(Keys.SCHEDULER_END_HOUR, 6)
+
+    // Per-folder sync conditions (JSON map)
+    val folderConditions: Flow<String> = pref(Keys.FOLDER_CONDITIONS, "{}")
+
     // Advanced
     val guiPort: Flow<Int> = pref(Keys.GUI_PORT, 8384)
 
@@ -53,6 +61,11 @@ class SettingsStore(private val context: Context) {
     suspend fun setTheme(value: String) = set(Keys.THEME, value)
     suspend fun setActiveProfile(value: String) = set(Keys.ACTIVE_PROFILE, value)
     suspend fun setGuiPort(value: Int) = set(Keys.GUI_PORT, value)
+
+    suspend fun setSchedulerEnabled(value: Boolean) = set(Keys.SCHEDULER_ENABLED, value)
+    suspend fun setSchedulerStartHour(value: Int) = set(Keys.SCHEDULER_START_HOUR, value)
+    suspend fun setSchedulerEndHour(value: Int) = set(Keys.SCHEDULER_END_HOUR, value)
+    suspend fun setFolderConditions(json: String) = set(Keys.FOLDER_CONDITIONS, json)
 
     private fun pref(key: Preferences.Key<Boolean>, default: Boolean): Flow<Boolean> =
         context.dataStore.data.map { it[key] ?: default }
@@ -81,5 +94,9 @@ class SettingsStore(private val context: Context) {
         val THEME = stringPreferencesKey("theme")
         val ACTIVE_PROFILE = stringPreferencesKey("active_profile")
         val GUI_PORT = intPreferencesKey("gui_port")
+        val SCHEDULER_ENABLED = booleanPreferencesKey("scheduler_enabled")
+        val SCHEDULER_START_HOUR = intPreferencesKey("scheduler_start_hour")
+        val SCHEDULER_END_HOUR = intPreferencesKey("scheduler_end_hour")
+        val FOLDER_CONDITIONS = stringPreferencesKey("folder_conditions")
     }
 }
