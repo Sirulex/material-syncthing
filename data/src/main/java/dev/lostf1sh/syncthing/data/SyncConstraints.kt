@@ -44,8 +44,13 @@ class SyncConstraints(private val context: Context) {
             settings.allowMetered,
             settings.chargingOnly,
             settings.respectBatterySaver,
-        ) { networkState, wifiOnly, allowMetered, chargingOnly, respectBatterySaver ->
-            decide(networkState, wifiOnly, allowMetered, chargingOnly, respectBatterySaver)
+            settings.schedulerEnabled,
+            settings.schedulerStartHour,
+            settings.schedulerEndHour,
+        ) { networkState, wifiOnly, allowMetered, chargingOnly, respectBatterySaver,
+            schedulerEnabled, schedulerStartHour, schedulerEndHour ->
+            decide(networkState, wifiOnly, allowMetered, chargingOnly, respectBatterySaver,
+                schedulerEnabled, schedulerStartHour, schedulerEndHour)
         }.distinctUntilChanged()
     }
 
@@ -55,6 +60,9 @@ class SyncConstraints(private val context: Context) {
         allowMetered: Boolean,
         chargingOnly: Boolean,
         respectBatterySaver: Boolean,
+        schedulerEnabled: Boolean = false,
+        schedulerStartHour: Int = 23,
+        schedulerEndHour: Int = 6,
     ): ConstraintState {
         // Battery saver check
         if (respectBatterySaver && isBatterySaverOn()) {
@@ -64,6 +72,19 @@ class SyncConstraints(private val context: Context) {
         // Charging check
         if (chargingOnly && !isCharging()) {
             return ConstraintState.ShouldPause("Not charging")
+        }
+
+        // Scheduler check
+        if (schedulerEnabled) {
+            val now = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            val inRange = if (schedulerStartHour < schedulerEndHour) {
+                now in schedulerStartHour until schedulerEndHour
+            } else {
+                now >= schedulerStartHour || now < schedulerEndHour
+            }
+            if (!inRange) {
+                return ConstraintState.ShouldPause("Outside scheduled hours (${schedulerStartHour}:00 - ${schedulerEndHour}:00)")
+            }
         }
 
         // Network checks

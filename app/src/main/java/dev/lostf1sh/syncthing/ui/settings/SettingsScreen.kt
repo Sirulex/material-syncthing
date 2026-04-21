@@ -22,6 +22,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -58,6 +59,9 @@ fun SettingsScreen(
     val respectBatterySaver by settingsStore.respectBatterySaver.collectAsStateWithLifecycle(initialValue = true)
     val notifySyncComplete by settingsStore.notifySyncComplete.collectAsStateWithLifecycle(initialValue = true)
     val notifyDeviceConnected by settingsStore.notifyDeviceConnected.collectAsStateWithLifecycle(initialValue = false)
+    val schedulerEnabled by settingsStore.schedulerEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val schedulerStartHour by settingsStore.schedulerStartHour.collectAsStateWithLifecycle(initialValue = 23)
+    val schedulerEndHour by settingsStore.schedulerEndHour.collectAsStateWithLifecycle(initialValue = 6)
     val notifyErrors by settingsStore.notifyErrors.collectAsStateWithLifecycle(initialValue = true)
 
     Scaffold(
@@ -119,6 +123,43 @@ fun SettingsScreen(
                     checked = respectBatterySaver,
                     onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
                 )
+            }
+
+            // --- Scheduler ---
+            SectionHeader("Scheduler")
+            SectionCard {
+                SettingsSwitch(
+                    title = "Enable time scheduler",
+                    description = "Only allow sync within set hours",
+                    checked = schedulerEnabled,
+                    onCheckedChange = { scope.launch { settingsStore.setSchedulerEnabled(it) } },
+                )
+                if (schedulerEnabled) {
+                    ListItem(
+                        headlineContent = { Text("Start hour: ${schedulerStartHour}:00") },
+                        trailingContent = {
+                            Slider(
+                                value = schedulerStartHour.toFloat(),
+                                onValueChange = { scope.launch { settingsStore.setSchedulerStartHour(it.toInt()) } },
+                                valueRange = 0f..23f,
+                                steps = 22,
+                                modifier = Modifier.width(120.dp),
+                            )
+                        },
+                    )
+                    ListItem(
+                        headlineContent = { Text("End hour: ${schedulerEndHour}:00") },
+                        trailingContent = {
+                            Slider(
+                                value = schedulerEndHour.toFloat(),
+                                onValueChange = { scope.launch { settingsStore.setSchedulerEndHour(it.toInt()) } },
+                                valueRange = 0f..23f,
+                                steps = 22,
+                                modifier = Modifier.width(120.dp),
+                            )
+                        },
+                    )
+                }
             }
 
             // --- Notifications ---

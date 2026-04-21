@@ -5,6 +5,8 @@ import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.events.EventStream
 import dev.lostf1sh.syncthing.data.ConflictDetector
 import dev.lostf1sh.syncthing.data.DeviceRepository
+import dev.lostf1sh.syncthing.data.FolderCondition
+import dev.lostf1sh.syncthing.data.parseFolderConditions
 import dev.lostf1sh.syncthing.data.EventRepository
 import dev.lostf1sh.syncthing.data.FolderRepository
 import dev.lostf1sh.syncthing.data.HealthAggregator
@@ -120,9 +122,15 @@ class AppContainer(private val appContext: Context) {
             }
         }
 
+        // Collect recent logcat output for diagnostics viewer.
+        launch {
+            collectLogs()
+        }
+
         launch {
             h.eventRepository.allFolderStates().collect { (folderId, state) ->
                 appState.updateFolderState(folderId, state)
+                enforceFolderConditions(h)
             }
         }
 
@@ -210,6 +218,54 @@ class AppContainer(private val appContext: Context) {
         lastTotalIn = totalIn
         lastTotalOut = totalOut
         lastSampleAt = now
+    }
+
+    private suspend fun collectLogs() {
+        withContext(Dispatchers.IO) {
+            try {
+                val process = Runtime.getRuntime().exec(
+                    "logcat -d -t 200 -v threadtime SyncthingService:D Syncthing:D lostf1sh:D *:S"
+                )
+                process.inputStream.bufferedReader().useLines { lines ->
+                    lines.forEach { line -> appState.pushLog(line) }
+                }
+            } catch (_: Exception) { }
+            // Refresh every 10 seconds
+            delay(10_000)
+            collectLogs()
+        }
+    }
+
+    /**
+     * Evaluate per-folder sync conditions and pause/resume folders as needed.
+     * Called whenever constraints or folder states change.
+     */
+    private suspend fun enforceFolderConditions(h: ClientHandles) {
+        val raw = try {
+            settingsStore.folderConditions.first()
+        } catch (_: Exception) { return }
+        val conditions = parseFolderConditions(raw)
+        if (conditions.isEmpty()) return
+
+        val cm = appContext.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+            as android.net.ConnectivityManager
+        val activeNetwork = cm.activeNetwork
+        val activeCaps = activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        val isWifi = activeCaps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ?: false
+        val bm = appContext.getSystemService(android.content.Context.BATTERY_SERVICE)
+            as android.os.BatteryManager
+        val isCharging = bm.isCharging
+
+        val folders = appState.folders.value
+        for (folder in folders) {
+            val c = conditions[folder.id] ?: continue
+            val shouldPause = (c.wifiOnly && !isWifi) || (c.chargingOnly && !isCharging)
+            if (shouldPause && !folder.paused) {
+                try { h.client.pauseFolder(folder.id) } catch (_: Exception) { }
+            } else if (!shouldPause && folder.paused) {
+                try { h.client.resumeFolder(folder.id) } catch (_: Exception) { }
+            }
+        }
     }
 
     private fun refreshConflicts() {

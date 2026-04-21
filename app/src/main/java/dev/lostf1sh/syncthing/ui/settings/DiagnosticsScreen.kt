@@ -38,6 +38,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import dev.lostf1sh.syncthing.api.dto.SystemStatus
 import dev.lostf1sh.syncthing.data.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,6 +52,8 @@ import java.util.zip.ZipOutputStream
 @Composable
 fun DiagnosticsScreen(
     settingsStore: SettingsStore?,
+    systemStatus: SystemStatus? = null,
+    logs: List<String> = emptyList(),
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -100,6 +103,42 @@ fun DiagnosticsScreen(
 
             Spacer(Modifier.height(24.dp))
 
+            if (systemStatus != null) {
+                Spacer(Modifier.height(16.dp))
+                Text("Service Health", style = MaterialTheme.typography.titleSmall)
+                ListItem(
+                    headlineContent = { Text("Memory") },
+                    supportingContent = { Text("${systemStatus.alloc / 1024 / 1024} MB") },
+                )
+                ListItem(
+                    headlineContent = { Text("Uptime") },
+                    supportingContent = {
+                        val uptime = systemStatus.uptime
+                        Text(
+                            "${uptime / 3600}h ${(uptime % 3600) / 60}m ${uptime % 60}s"
+                        )
+                    },
+                )
+                ListItem(
+                    headlineContent = { Text("Goroutines") },
+                    supportingContent = { Text("${systemStatus.goroutines}") },
+                )
+            }
+
+            if (logs.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text("Recent Logs", style = MaterialTheme.typography.titleSmall)
+                logs.takeLast(20).forEach { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
             Text("Bundle includes:", style = MaterialTheme.typography.titleSmall)
             ListItem(headlineContent = { Text("App version and device info") })
             ListItem(headlineContent = { Text("Redacted config snapshot") })

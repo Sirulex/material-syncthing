@@ -8,6 +8,7 @@ import dev.lostf1sh.syncthing.api.dto.PendingDevice
 import dev.lostf1sh.syncthing.api.dto.PendingFolder
 import dev.lostf1sh.syncthing.api.dto.DeviceStats
 import dev.lostf1sh.syncthing.api.dto.FolderStats
+import dev.lostf1sh.syncthing.api.dto.SystemStatus
 import dev.lostf1sh.syncthing.data.model.BandwidthSample
 import dev.lostf1sh.syncthing.data.model.ConflictItem
 import dev.lostf1sh.syncthing.data.model.SyncHealth
@@ -79,6 +80,12 @@ class AppState {
     private val _recentChanges = MutableStateFlow<List<RecentChangeItem>>(emptyList())
     val recentChanges: StateFlow<List<RecentChangeItem>> = _recentChanges.asStateFlow()
 
+    private val _systemStatus = MutableStateFlow<SystemStatus?>(null)
+    val systemStatus: StateFlow<SystemStatus?> = _systemStatus.asStateFlow()
+
+    private val _logs = MutableStateFlow<List<String>>(emptyList())
+    val logs: StateFlow<List<String>> = _logs.asStateFlow()
+
     fun setFolders(list: List<Folder>) { _folders.value = list }
     fun setDevices(list: List<Device>) { _devices.value = list }
     fun setFolderStatuses(map: Map<String, FolderStatus>) { _folderStatuses.value = map }
@@ -98,6 +105,8 @@ class AppState {
     fun setPendingDevices(map: Map<String, PendingDevice>) { _pendingDevices.value = map }
     fun setFolderStats(map: Map<String, FolderStats>) { _folderStats.value = map }
     fun setDeviceStats(map: Map<String, DeviceStats>) { _deviceStats.value = map }
+    fun setSystemStatus(s: SystemStatus?) { _systemStatus.value = s }
+    fun pushLog(line: String) { _logs.update { (it + line).takeLast(500) } }
 
     fun pushRecentChange(item: RecentChangeItem) {
         _recentChanges.update { (listOf(item) + it).take(MAX_RECENT_CHANGES) }
@@ -137,5 +146,7 @@ class AppState {
         _folderStats.value = emptyMap()
         _deviceStats.value = emptyMap()
         _recentChanges.value = emptyList()
+        _systemStatus.value = null
+        _logs.value = emptyList()
     }
 }

@@ -89,6 +89,8 @@ fun AppNavigation(
     val deviceStats by appState.deviceStats.collectAsStateWithLifecycle()
     val recentChanges by appState.recentChanges.collectAsStateWithLifecycle()
     val pendingDevices by appState.pendingDevices.collectAsStateWithLifecycle()
+    val systemStatus by appState.systemStatus.collectAsStateWithLifecycle()
+    val logs by appState.logs.collectAsStateWithLifecycle()
     val folderConditionsRaw by container.settingsStore.folderConditions.collectAsStateWithLifecycle(initialValue = "{}")
     val folderConditions = remember(folderConditionsRaw) { parseFolderConditions(folderConditionsRaw) }
 
@@ -596,6 +598,8 @@ fun AppNavigation(
         composable<DiagnosticsRoute> {
             DiagnosticsScreen(
                 settingsStore = container.settingsStore,
+                systemStatus = systemStatus,
+                logs = logs,
                 onBack = { navController.popBackStack() },
             )
         }
