@@ -42,6 +42,7 @@ import dev.lostf1sh.syncthing.ui.errors.ConflictScreen
 import dev.lostf1sh.syncthing.ui.errors.ErrorCenterScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
 import dev.lostf1sh.syncthing.ui.home.InsightsScreen
+import dev.lostf1sh.syncthing.ui.home.RecentChangesScreen
 import dev.lostf1sh.syncthing.ui.share.ShareTargetScreen
 import dev.lostf1sh.syncthing.ui.share.copyUrisToFolder
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +84,7 @@ fun AppNavigation(
     val bandwidth by appState.bandwidthHistory.collectAsStateWithLifecycle()
     val folderStats by appState.folderStats.collectAsStateWithLifecycle()
     val deviceStats by appState.deviceStats.collectAsStateWithLifecycle()
+    val recentChanges by appState.recentChanges.collectAsStateWithLifecycle()
 
     // Boot the collector loop when the service is Running. Tear down only on
     // terminal states — keep caches warm during transient Paused/Starting so a
@@ -215,6 +217,7 @@ fun AppNavigation(
             HomeScreen(
                 folders = folders,
                 folderStates = folderStates,
+                folderStatuses = folderStatuses,
                 devices = devices,
                 deviceConnections = deviceConnections,
                 onFolderClick = { navController.navigate(FolderRoute(it)) },
@@ -248,6 +251,7 @@ fun AppNavigation(
                 localDeviceId = localDeviceId,
                 bandwidth = bandwidth,
                 onInsightsClick = { navController.navigate(InsightsRoute) },
+                onRecentChangesClick = { navController.navigate(RecentChangesRoute) },
             )
         }
         composable<ShareTargetRoute> {
@@ -586,6 +590,16 @@ fun AppNavigation(
                 onDiagnosticsClick = { navController.navigate(DiagnosticsRoute) },
                 onErrorCenterClick = { navController.navigate(ErrorCenterRoute) },
                 onBatteryWizardClick = { navController.navigate(BatteryWizardRoute) },
+            )
+        }
+        composable<RecentChangesRoute> {
+            val folderLabels = remember(folders) {
+                folders.associate { it.id to it.label.ifBlank { it.id } }
+            }
+            RecentChangesScreen(
+                changes = recentChanges,
+                folderLabels = folderLabels,
+                onBack = { navController.popBackStack() },
             )
         }
         composable<BatteryWizardRoute> {

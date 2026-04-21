@@ -39,6 +39,9 @@ object DiagnosticsRoute
 object InsightsRoute
 
 @Serializable
+object RecentChangesRoute
+
+@Serializable
 object BatteryWizardRoute
 
 /** One-shot navigation intent from a shortcut / widget / share. Consumed on delivery. */

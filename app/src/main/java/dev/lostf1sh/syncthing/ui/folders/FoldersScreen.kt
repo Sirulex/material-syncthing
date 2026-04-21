@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 import dev.lostf1sh.syncthing.ui.core.components.StatusChip
 
@@ -52,6 +53,7 @@ import dev.lostf1sh.syncthing.ui.core.components.StatusChip
 fun FoldersScreen(
     folders: List<Folder>,
     folderStates: Map<String, String>,
+    folderStatuses: Map<String, FolderStatus> = emptyMap(),
     onFolderClick: (String) -> Unit,
     onAddFolder: (() -> Unit)? = null,
     onTogglePause: ((String, Boolean) -> Unit)? = null,
@@ -100,6 +102,7 @@ fun FoldersScreen(
                     FolderCard(
                         folder = folder,
                         state = folderStates[folder.id] ?: "unknown",
+                        status = folderStatuses[folder.id],
                         onClick = { onFolderClick(folder.id) },
                         onTogglePause = onTogglePause?.let { toggle ->
                             { paused -> toggle(folder.id, paused) }
@@ -134,11 +137,15 @@ fun FoldersScreen(
 private fun FolderCard(
     folder: Folder,
     state: String,
+    status: FolderStatus?,
     onClick: () -> Unit,
     onTogglePause: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val isSyncing = state == "syncing"
+    val globalBytes = status?.globalBytes ?: 0L
+    val inSyncBytes = status?.inSyncBytes ?: 0L
+    val hasProgress = isSyncing && globalBytes > 0 && !folder.paused
 
     Card(
         modifier = modifier
@@ -191,8 +198,22 @@ private fun FolderCard(
                 StatusChip(state = if (folder.paused) "paused" else state)
             }
 
-            // Expressive wavy progress when syncing
-            if (isSyncing && !folder.paused) {
+            // Real progress bar when syncing with known bytes
+            if (hasProgress) {
+                Spacer(Modifier.height(8.dp))
+                val progress = (inSyncBytes.toFloat() / globalBytes.toFloat()).coerceIn(0f, 1f)
+                LinearWavyProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "${(progress * 100).toInt()}% — ${formatBytes(inSyncBytes)} / ${formatBytes(globalBytes)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            } else if (isSyncing && !folder.paused) {
+                // Indeterminate wavy progress when syncing but bytes unknown
                 Spacer(Modifier.height(8.dp))
                 LinearWavyProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
@@ -200,4 +221,14 @@ private fun FolderCard(
             }
         }
     }
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024) return "%.1f KiB".format(kb)
+    val mb = kb / 1024.0
+    if (mb < 1024) return "%.1f MiB".format(mb)
+    val gb = mb / 1024.0
+    return "%.1f GiB".format(gb)
 }

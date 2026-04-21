@@ -5,10 +5,11 @@ import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.events.EventStream
 import dev.lostf1sh.syncthing.data.ConflictDetector
 import dev.lostf1sh.syncthing.data.DeviceRepository
-import dev.lostf1sh.syncthing.data.model.BandwidthSample
 import dev.lostf1sh.syncthing.data.EventRepository
 import dev.lostf1sh.syncthing.data.FolderRepository
 import dev.lostf1sh.syncthing.data.HealthAggregator
+import dev.lostf1sh.syncthing.data.model.BandwidthSample
+import dev.lostf1sh.syncthing.data.NotificationPolicy
 import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SyncConstraints
 import dev.lostf1sh.syncthing.data.SystemRepository
@@ -126,6 +127,21 @@ class AppContainer(private val appContext: Context) {
         launch {
             h.eventRepository.configChanges().collect {
                 refreshConfig(h)
+            }
+        }
+
+        // Recent changes feed — collect ItemFinished events.
+        launch {
+            h.eventRepository.recentChanges().collect { event ->
+                appState.pushRecentChange(
+                    RecentChangeItem(
+                        folderId = event.folderId,
+                        path = event.item,
+                        action = event.action,
+                        timestamp = event.time,
+                        error = event.error,
+                    )
+                )
             }
         }
 

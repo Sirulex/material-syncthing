@@ -16,6 +16,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
+data class RecentChangeItem(
+    val folderId: String,
+    val path: String,
+    val action: String,
+    val timestamp: String,
+    val error: String?,
+)
+
 /**
  * Process-wide snapshot of Syncthing state. Populated by [AppContainer]'s
  * collector loop whenever the service is running. Read by UI via
@@ -64,6 +72,9 @@ class AppState {
     private val _deviceStats = MutableStateFlow<Map<String, DeviceStats>>(emptyMap())
     val deviceStats: StateFlow<Map<String, DeviceStats>> = _deviceStats.asStateFlow()
 
+    private val _recentChanges = MutableStateFlow<List<RecentChangeItem>>(emptyList())
+    val recentChanges: StateFlow<List<RecentChangeItem>> = _recentChanges.asStateFlow()
+
     fun setFolders(list: List<Folder>) { _folders.value = list }
     fun setDevices(list: List<Device>) { _devices.value = list }
     fun setFolderStatuses(map: Map<String, FolderStatus>) { _folderStatuses.value = map }
@@ -83,12 +94,17 @@ class AppState {
     fun setFolderStats(map: Map<String, FolderStats>) { _folderStats.value = map }
     fun setDeviceStats(map: Map<String, DeviceStats>) { _deviceStats.value = map }
 
+    fun pushRecentChange(item: RecentChangeItem) {
+        _recentChanges.update { (listOf(item) + it).take(MAX_RECENT_CHANGES) }
+    }
+
     fun pushBandwidthSample(sample: BandwidthSample) {
         _bandwidthHistory.update { (it + sample).takeLast(MAX_BANDWIDTH_SAMPLES) }
     }
 
     companion object {
         const val MAX_BANDWIDTH_SAMPLES = 60
+        const val MAX_RECENT_CHANGES = 100
     }
 
     fun updateFolderState(folderId: String, state: String) {
@@ -114,5 +130,6 @@ class AppState {
         _bandwidthHistory.value = emptyList()
         _folderStats.value = emptyMap()
         _deviceStats.value = emptyMap()
+        _recentChanges.value = emptyList()
     }
 }

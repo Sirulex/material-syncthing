@@ -79,4 +79,9 @@ class EventRepository(private val eventStream: EventStream) {
     fun configChanges(): Flow<SyncthingEvent.ConfigSaved> = events
         .filter { it is SyncthingEvent.ConfigSaved }
         .map { it as SyncthingEvent.ConfigSaved }
+
+    /** All item finished events (recent changes feed). */
+    fun recentChanges(): Flow<SyncthingEvent.ItemFinished> = events
+        .filter { it is SyncthingEvent.ItemFinished }
+        .map { it as SyncthingEvent.ItemFinished }
 }

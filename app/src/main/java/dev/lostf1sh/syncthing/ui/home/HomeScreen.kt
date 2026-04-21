@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.data.model.BandwidthSample
 import dev.lostf1sh.syncthing.data.model.SyncHealth
 import dev.lostf1sh.syncthing.native.RunState
@@ -44,6 +45,7 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     folders: List<Folder>,
     folderStates: Map<String, String>,
+    folderStatuses: Map<String, FolderStatus> = emptyMap(),
     devices: List<Device>,
     deviceConnections: Map<String, Boolean>,
     onFolderClick: (String) -> Unit,
@@ -57,6 +59,7 @@ fun HomeScreen(
     localDeviceId: String? = null,
     bandwidth: List<BandwidthSample> = emptyList(),
     onInsightsClick: () -> Unit = {},
+    onRecentChangesClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by SyncthingService.state.collectAsStateWithLifecycle()
@@ -99,6 +102,7 @@ fun HomeScreen(
                     bandwidth = bandwidth,
                     onClick = onInsightsClick,
                 )
+                RecentChangesCard(onClick = onRecentChangesClick)
                 HealthBanner(health = health)
             }
             PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -123,6 +127,7 @@ fun HomeScreen(
                     0 -> FoldersScreen(
                         folders = folders,
                         folderStates = folderStates,
+                        folderStatuses = folderStatuses,
                         onFolderClick = onFolderClick,
                         onRefresh = onRefresh,
                     )
