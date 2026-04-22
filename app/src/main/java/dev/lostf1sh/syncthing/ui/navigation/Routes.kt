@@ -68,3 +68,6 @@ data class IgnoreEditorRoute(val folderId: String)
 
 @Serializable
 data class EditFolderRoute(val folderId: String)
+
+@Serializable
+data class EditDeviceRoute(val deviceId: String)

@@ -30,6 +30,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import dev.lostf1sh.syncthing.ui.devices.AddDeviceScreen
 import dev.lostf1sh.syncthing.ui.devices.DeviceDetailScreen
+import dev.lostf1sh.syncthing.ui.devices.EditDeviceScreen
 import dev.lostf1sh.syncthing.ui.folders.AcceptFolderDialog
 import dev.lostf1sh.syncthing.ui.folders.AddFolderScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderBrowserScreen
@@ -583,6 +584,50 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
             )
         }
+        composable<EditDeviceRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<EditDeviceRoute>()
+            val device = devices.find { it.deviceID == route.deviceId }
+            if (device == null) {
+                LaunchedEffect(route.deviceId) { navController.popBackStack() }
+                return@composable
+            }
+            EditDeviceScreen(
+                deviceId = device.deviceID,
+                initialName = device.name,
+                initialAddresses = device.addresses,
+                initialCompression = device.compression,
+                initialIntroducer = device.introducer,
+                initialAutoAcceptFolders = device.autoAcceptFolders,
+                onSave = { name, addresses, compression, introducer, autoAcceptFolders ->
+                    val deviceRepo = container.deviceRepository
+                        ?: return@EditDeviceScreen Result.failure(
+                            Exception("Syncthing service not running")
+                        )
+                    try {
+                        val updated = device.copy(
+                            name = name,
+                            addresses = addresses,
+                            compression = compression,
+                            introducer = introducer,
+                            autoAcceptFolders = autoAcceptFolders,
+                        )
+                        deviceRepo.updateDevice(updated)
+                        appState.setDevices(deviceRepo.devices())
+                        appState.setDiagnostic(null)
+                        appState.pushLog("App: device updated ${device.deviceID}")
+                        Result.success(Unit)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                        appState.setDiagnostic("Could not update device: $detail")
+                        appState.pushLog("App: could not update device ${device.deviceID}: $detail")
+                        Result.failure(e)
+                    }
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable<DeviceRoute>(
             deepLinks = listOf(navDeepLink { uriPattern = "syncthing://device/{id}" }),
         ) { backStackEntry ->
@@ -621,6 +666,7 @@ fun AppNavigation(
                         try { container.client?.resumeDevice(id) } catch (_: Exception) { }
                     }
                 },
+                onEdit = { id -> navController.navigate(EditDeviceRoute(id)) },
                 onShareExistingFolders = { deviceId ->
                     scope.launch {
                         val folderRepo = container.folderRepository

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Pause
@@ -68,6 +69,7 @@ fun DeviceDetailScreen(
     onBack: () -> Unit,
     onPause: ((String) -> Unit)? = null,
     onResume: ((String) -> Unit)? = null,
+    onEdit: ((String) -> Unit)? = null,
     onShareExistingFolders: ((String) -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
     localDeviceId: String? = null,
@@ -165,6 +167,11 @@ fun DeviceDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (onEdit != null && !isLocal) {
+                        FilledTonalIconButton(onClick = { onEdit(device.deviceID) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        }
+                    }
                     FilledTonalIconButton(onClick = {
                         clipboard.setText(AnnotatedString(device.deviceID))
                     }) {
