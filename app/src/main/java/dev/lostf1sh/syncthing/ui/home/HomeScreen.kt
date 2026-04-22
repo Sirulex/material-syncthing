@@ -67,8 +67,9 @@ import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.data.model.BandwidthSample
 import dev.lostf1sh.syncthing.data.model.SyncHealth
-import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
+import dev.lostf1sh.syncthing.ui.core.displayColor
+import dev.lostf1sh.syncthing.ui.core.displayLabelWithReason
 import dev.lostf1sh.syncthing.ui.devices.DevicesScreen
 import dev.lostf1sh.syncthing.ui.folders.FoldersScreen
 import kotlinx.coroutines.launch
@@ -113,8 +114,8 @@ fun HomeScreen(
                 title = { Text(stringResource(R.string.app_name)) },
                 subtitle = {
                     Text(
-                        text = stateLabel(state),
-                        color = stateColor(state),
+                        text = state.displayLabelWithReason(),
+                        color = state.displayColor(),
                     )
                 },
                 actions = {
@@ -421,20 +422,4 @@ private fun DiagnosticBanner(
             }
         }
     }
-}
-
-@Composable
-private fun stateColor(state: RunState) = when (state) {
-    is RunState.Running -> MaterialTheme.colorScheme.primary
-    is RunState.Crashed -> MaterialTheme.colorScheme.error
-    is RunState.Paused -> MaterialTheme.colorScheme.tertiary
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
-}
-
-private fun stateLabel(state: RunState): String = when (state) {
-    is RunState.Stopped -> "Stopped"
-    is RunState.Starting -> "Starting..."
-    is RunState.Running -> "Running"
-    is RunState.Crashed -> "Crashed: ${state.reason}"
-    is RunState.Paused -> "Paused"
 }

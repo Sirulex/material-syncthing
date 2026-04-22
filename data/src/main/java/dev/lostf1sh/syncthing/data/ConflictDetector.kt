@@ -2,10 +2,9 @@ package dev.lostf1sh.syncthing.data
 
 import dev.lostf1sh.syncthing.data.model.ConflictItem
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 /**
  * Detects Syncthing conflict-copy files in a folder's on-disk tree.
@@ -23,9 +22,7 @@ object ConflictDetector {
     private val CONFLICT_REGEX =
         Regex("""\.sync-conflict-\d{8}-\d{6}-([A-Z0-9]{7})(?:\.|$)""")
 
-    private val ISO_FORMAT = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
+    private val ISO_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneOffset.UTC)
 
     /** Scan a single folder. Returns an empty list on any I/O failure. */
     fun scan(folderId: String, folderPath: String): List<ConflictItem> {
@@ -68,5 +65,6 @@ object ConflictDetector {
     fun shortIdOf(conflictPath: String): String? =
         CONFLICT_REGEX.find(conflictPath)?.groupValues?.getOrNull(1)
 
-    private fun formatTime(millis: Long): String = ISO_FORMAT.format(Date(millis))
+    private fun formatTime(millis: Long): String =
+        ISO_FORMAT.format(Instant.ofEpochMilli(millis))
 }

@@ -81,7 +81,12 @@ fun AddFolderScreen(
             folderPath = if (docId.startsWith("primary:")) {
                 "${Environment.getExternalStorageDirectory().absolutePath}/${docId.removePrefix("primary:")}"
             } else {
-                docId
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        "SD card / external storage paths must be entered manually"
+                    )
+                }
+                ""
             }
         }
     }

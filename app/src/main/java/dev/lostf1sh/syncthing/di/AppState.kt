@@ -29,7 +29,7 @@ data class RecentChangeItem(
 /**
  * Process-wide snapshot of Syncthing state. Populated by [AppContainer]'s
  * collector loop whenever the service is running. Read by UI via
- * `collectAsStateWithLifecycle`, and by widgets / tiles from the process scope.
+ * `collectAsStateWithLifecycle`, and by tiles from the process scope.
  */
 class AppState {
     private val _folders = MutableStateFlow<List<Folder>>(emptyList())

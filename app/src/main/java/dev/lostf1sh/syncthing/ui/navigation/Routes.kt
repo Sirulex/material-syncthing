@@ -50,7 +50,7 @@ object RecentChangesRoute
 @Serializable
 object BatteryWizardRoute
 
-/** One-shot navigation intent from a shortcut / widget / share. Consumed on delivery. */
+/** One-shot navigation intent from a shortcut or share. Consumed on delivery. */
 sealed interface PendingShortcut {
     data object ErrorCenter : PendingShortcut
     data object Insights : PendingShortcut

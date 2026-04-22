@@ -15,6 +15,7 @@ import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.native.ConfigBootstrapper
 import dev.lostf1sh.syncthing.native.NativeLauncher
 import dev.lostf1sh.syncthing.native.RunState
+import kotlin.concurrent.thread
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -141,18 +142,21 @@ class SyncthingService : Service() {
         Log.i(TAG, "Service destroying")
         constraintJob?.cancel()
         constraintJob = null
-        // Kill binary synchronously BEFORE cancelling the coroutine that holds waitFor().
-        // Process.waitFor() is not cancellable by coroutine cancel, so the coroutine
-        // would otherwise race with an unrelated scope and orphan the native process.
+        // Issue SIGTERM on a detached thread so we don't ANR the main looper.
+        // launcher.stop() begins with proc.destroy(); the remaining delay is
+        // just waiting for the process to exit. We don't need to block onDestroy
+        // for that — the thread will finish or time out on its own.
         if (::launcher.isInitialized && launcher.isRunning) {
-            try {
+            thread(start = true, isDaemon = true, name = "SyncthingShutdown") {
                 runBlocking {
-                    withTimeout(5_000) { launcher.stop() }
+                    try {
+                        withTimeout(5_000) { launcher.stop() }
+                    } catch (e: TimeoutCancellationException) {
+                        Log.w(TAG, "Stop timed out; binary may be orphaned", e)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error stopping binary in onDestroy", e)
+                    }
                 }
-            } catch (e: TimeoutCancellationException) {
-                Log.w(TAG, "Stop timed out; binary may be orphaned", e)
-            } catch (e: Exception) {
-                Log.w(TAG, "Error stopping binary in onDestroy", e)
             }
         }
         syncthingJob?.cancel()

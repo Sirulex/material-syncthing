@@ -9,6 +9,7 @@ import androidx.annotation.RequiresApi
 import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
+import dev.lostf1sh.syncthing.ui.core.displayLabel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,13 +45,21 @@ class SyncthingTileService : TileService() {
     override fun onClick() {
         super.onClick()
         val state = SyncthingService.state.value
-        val intent = Intent(applicationContext, SyncthingService::class.java).apply {
-            action = when (state) {
-                is RunState.Running, is RunState.Starting -> SyncthingService.ACTION_PAUSE
-                else -> SyncthingService.ACTION_START
-            }
+        val action = when (state) {
+            is RunState.Running, is RunState.Starting -> SyncthingService.ACTION_PAUSE
+            else -> SyncthingService.ACTION_START
         }
-        applicationContext.startForegroundService(intent)
+        val intent = Intent(applicationContext, SyncthingService::class.java).apply {
+            this.action = action
+        }
+        // PAUSE on a cold service must not use startForegroundService — the
+        // service won't call startForeground() and will crash with
+        // ForegroundServiceDidNotStartInTimeException on API 31+.
+        if (action == SyncthingService.ACTION_START) {
+            applicationContext.startForegroundService(intent)
+        } else {
+            applicationContext.startService(intent)
+        }
     }
 
     private fun applyState(state: RunState) {
@@ -62,13 +71,7 @@ class SyncthingTileService : TileService() {
             is RunState.Starting -> Tile.STATE_ACTIVE
             is RunState.Stopped, is RunState.Paused, is RunState.Crashed -> Tile.STATE_INACTIVE
         }
-        tile.subtitle = when (state) {
-            is RunState.Stopped -> "Stopped"
-            is RunState.Starting -> "Starting…"
-            is RunState.Running -> "Running"
-            is RunState.Paused -> "Paused"
-            is RunState.Crashed -> "Crashed"
-        }
+        tile.subtitle = state.displayLabel()
         tile.updateTile()
     }
 }

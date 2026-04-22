@@ -66,6 +66,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 
 @Composable
@@ -75,13 +76,13 @@ fun AppNavigation(
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val serviceState by SyncthingService.state.collectAsStateWithLifecycle()
-    val app = navController.context.applicationContext as SyncthingApp
+    val app = LocalContext.current.applicationContext as SyncthingApp
     val container = app.container
     val appState = container.appState
     val onboardingDone by container.settingsStore.onboardingComplete
         .collectAsStateWithLifecycle(initialValue = null)
 
-    // Process-wide state, collected in AppContainer. Widgets & tiles read the
+    // Process-wide state, collected in AppContainer. Tiles read the
     // same flows — UI just mirrors them.
     val folders by appState.folders.collectAsStateWithLifecycle()
     val devices by appState.devices.collectAsStateWithLifecycle()
@@ -295,7 +296,7 @@ fun AppNavigation(
         }
         composable<ShareTargetRoute> {
             var copying by remember { mutableStateOf(false) }
-            val context = navController.context
+            val context = LocalContext.current
             ShareTargetScreen(
                 folders = folders,
                 fileCount = incomingShareUris.size,
@@ -446,7 +447,7 @@ fun AppNavigation(
                 mutableStateOf<Set<String>>(emptySet())
             }
             var loading by remember(route.folderId, route.prefix) { mutableStateOf(true) }
-            val context = navController.context
+            val context = LocalContext.current
 
             suspend fun load() {
                 loading = true

@@ -1,6 +1,5 @@
 package dev.lostf1sh.syncthing.ui.home
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -25,11 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ripple
 import dev.lostf1sh.syncthing.data.model.BandwidthSample
@@ -42,7 +37,6 @@ fun InsightsCard(
 ) {
     val scheme = MaterialTheme.colorScheme
     val latest = bandwidth.lastOrNull()
-    val maxBps = bandwidth.maxOfOrNull { maxOf(it.inBytesPerSec, it.outBytesPerSec) } ?: 0L
 
     Card(
         modifier = modifier
@@ -87,18 +81,6 @@ fun InsightsCard(
                     modifier = Modifier.weight(1f),
                 )
             }
-            if (bandwidth.size >= 2) {
-                Spacer(Modifier.height(12.dp))
-                Sparkline(
-                    samples = bandwidth,
-                    maxBps = maxBps,
-                    inColor = scheme.primary,
-                    outColor = scheme.tertiary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                )
-            }
         }
     }
 }
@@ -129,48 +111,6 @@ private fun ThroughputTile(
                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
             )
         }
-    }
-}
-
-@Composable
-private fun Sparkline(
-    samples: List<BandwidthSample>,
-    maxBps: Long,
-    inColor: Color,
-    outColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(modifier = modifier) {
-        if (samples.size < 2 || maxBps <= 0) return@Canvas
-        val stepX = size.width / (samples.size - 1).toFloat()
-        fun toY(v: Long): Float {
-            val scaled = (v.toFloat() / maxBps.toFloat()).coerceIn(0f, 1f)
-            return size.height - (scaled * size.height)
-        }
-
-        val inPath = Path().apply {
-            moveTo(0f, toY(samples[0].inBytesPerSec))
-            samples.forEachIndexed { i, s ->
-                lineTo(i * stepX, toY(s.inBytesPerSec))
-            }
-        }
-        val outPath = Path().apply {
-            moveTo(0f, toY(samples[0].outBytesPerSec))
-            samples.forEachIndexed { i, s ->
-                lineTo(i * stepX, toY(s.outBytesPerSec))
-            }
-        }
-
-        drawPath(
-            path = inPath,
-            color = inColor,
-            style = Stroke(width = 3f, cap = StrokeCap.Round),
-        )
-        drawPath(
-            path = outPath,
-            color = outColor,
-            style = Stroke(width = 3f, cap = StrokeCap.Round),
-        )
     }
 }
 

@@ -194,9 +194,18 @@ private fun PermissionsStep() {
     val context = LocalContext.current
     var storageGranted by remember {
         mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Environment.isExternalStorageManager()
-            else true
+            } else {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                ) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    ) == PackageManager.PERMISSION_GRANTED
+            }
         )
     }
     var notifGranted by remember {
@@ -208,6 +217,13 @@ private fun PermissionsStep() {
                 ) == PackageManager.PERMISSION_GRANTED
             else true
         )
+    }
+
+    val storageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        storageGranted = result[Manifest.permission.READ_EXTERNAL_STORAGE] == true &&
+            result[Manifest.permission.WRITE_EXTERNAL_STORAGE] == true
     }
 
     val notifLauncher = rememberLauncherForActivityResult(
@@ -223,6 +239,15 @@ private fun PermissionsStep() {
             if (event == Lifecycle.Event.ON_RESUME) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     storageGranted = Environment.isExternalStorageManager()
+                } else {
+                    storageGranted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                    ) == PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        ) == PackageManager.PERMISSION_GRANTED
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     notifGranted = ContextCompat.checkSelfPermission(
@@ -268,6 +293,13 @@ private fun PermissionsStep() {
                                     Intent(
                                         Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
                                         Uri.parse("package:${context.packageName}"),
+                                    )
+                                )
+                            } else {
+                                storageLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
                                     )
                                 )
                             }

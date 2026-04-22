@@ -104,17 +104,16 @@ class SyncConstraints(private val context: Context) {
             return ConstraintState.ShouldPause("Not charging")
         }
 
-        // Scheduler check
+        // Scheduler check. Equal start/end is a zero-width interval, so it
+        // intentionally never matches instead of meaning "all day".
         if (schedulerEnabled) {
             val startMinuteOfDay = (schedulerStartHour.coerceIn(0, 23) * 60) + schedulerStartMinute.coerceIn(0, 59)
             val endMinuteOfDay = (schedulerEndHour.coerceIn(0, 23) * 60) + schedulerEndMinute.coerceIn(0, 59)
-            val inRange = if (startMinuteOfDay < endMinuteOfDay) {
-                currentMinuteOfDay in startMinuteOfDay until endMinuteOfDay
-            } else if (startMinuteOfDay > endMinuteOfDay) {
-                currentMinuteOfDay >= startMinuteOfDay || currentMinuteOfDay < endMinuteOfDay
-            } else {
-                true
-            }
+            val inRange = schedulerWindowContains(
+                startMinuteOfDay = startMinuteOfDay,
+                endMinuteOfDay = endMinuteOfDay,
+                currentMinuteOfDay = currentMinuteOfDay,
+            )
             if (!inRange) {
                 return ConstraintState.ShouldPause(
                     "Outside scheduled hours (${formatTime(schedulerStartHour, schedulerStartMinute)} - ${formatTime(schedulerEndHour, schedulerEndMinute)})"
@@ -249,4 +248,15 @@ class SyncConstraints(private val context: Context) {
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         return pm.isPowerSaveMode
     }
+}
+
+internal fun schedulerWindowContains(
+    startMinuteOfDay: Int,
+    endMinuteOfDay: Int,
+    currentMinuteOfDay: Int,
+): Boolean = when {
+    startMinuteOfDay < endMinuteOfDay -> currentMinuteOfDay in startMinuteOfDay until endMinuteOfDay
+    startMinuteOfDay > endMinuteOfDay -> currentMinuteOfDay >= startMinuteOfDay || currentMinuteOfDay < endMinuteOfDay
+    // Zero-width interval means never.
+    else -> false
 }

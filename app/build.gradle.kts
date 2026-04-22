@@ -73,8 +73,6 @@ dependencies {
     implementation(libs.camera.view)
     implementation(libs.zxing.core)
     implementation(libs.mlkit.barcode)
-    implementation(libs.glance.appwidget)
-    implementation(libs.glance.material3)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
