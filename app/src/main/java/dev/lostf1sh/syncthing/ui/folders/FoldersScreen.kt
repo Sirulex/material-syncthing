@@ -1,6 +1,6 @@
 package dev.lostf1sh.syncthing.ui.folders
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,22 +22,25 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LargeExtendedFloatingActionButton
 import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +50,8 @@ import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 import dev.lostf1sh.syncthing.ui.core.components.StatusChip
+
+private enum class FolderFilter { All, Syncing, Paused }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -60,25 +65,20 @@ fun FoldersScreen(
     onRefresh: (suspend () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (folders.isEmpty()) {
-        Box(modifier = modifier.fillMaxSize()) {
-            EmptyState(
-                title = "No folders",
-                description = "Add a folder to start syncing files between devices.",
-                actionLabel = "Add Folder",
-                onAction = onAddFolder,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        return
-    }
-
     val listState = rememberLazyListState()
-    val fabVisible by remember {
-        derivedStateOf { listState.firstVisibleItemIndex == 0 }
-    }
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
+    var selectedFilter by rememberSaveable { mutableStateOf(FolderFilter.All) }
+
+    val filteredFolders = remember(folders, folderStates, selectedFilter) {
+        folders.filter { folder ->
+            when (selectedFilter) {
+                FolderFilter.All -> true
+                FolderFilter.Syncing -> (folderStates[folder.id] ?: "unknown") == "syncing" && !folder.paused
+                FolderFilter.Paused -> folder.paused
+            }
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         PullToRefreshBox(
@@ -98,7 +98,54 @@ fun FoldersScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
-                items(folders, key = { it.id }) { folder ->
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = selectedFilter == FolderFilter.All,
+                            onClick = { selectedFilter = FolderFilter.All },
+                            label = { Text("All") },
+                        )
+                        FilterChip(
+                            selected = selectedFilter == FolderFilter.Syncing,
+                            onClick = { selectedFilter = FolderFilter.Syncing },
+                            label = { Text("Syncing") },
+                        )
+                        FilterChip(
+                            selected = selectedFilter == FolderFilter.Paused,
+                            onClick = { selectedFilter = FolderFilter.Paused },
+                            label = { Text("Paused") },
+                        )
+                    }
+                }
+                if (refreshing && folders.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LoadingIndicator()
+                        }
+                    }
+                } else if (filteredFolders.isEmpty()) {
+                    item {
+                        EmptyState(
+                            title = if (folders.isEmpty()) "No folders" else "No matching folders",
+                            description = if (folders.isEmpty()) {
+                                "Add a folder to start syncing files between devices."
+                            } else {
+                                "Try a different filter to view other folders."
+                            },
+                            actionLabel = "Add Folder",
+                            onAction = onAddFolder,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                        )
+                    }
+                }
+                items(filteredFolders, key = { it.id }) { folder ->
                     FolderCard(
                         folder = folder,
                         state = folderStates[folder.id] ?: "unknown",
@@ -115,7 +162,7 @@ fun FoldersScreen(
 
         // Expressive Large Extended FAB
         if (onAddFolder != null) {
-            LargeExtendedFloatingActionButton(
+            MediumExtendedFloatingActionButton(
                 onClick = onAddFolder,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -150,7 +197,11 @@ private fun FolderCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
@@ -196,6 +247,13 @@ private fun FolderCard(
                     )
                 }
                 StatusChip(state = if (folder.paused) "paused" else state)
+                if (hasProgress) {
+                    val progress = (inSyncBytes.toFloat() / globalBytes.toFloat()).coerceIn(0f, 1f)
+                    CircularWavyProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
             }
 
             // Real progress bar when syncing with known bytes

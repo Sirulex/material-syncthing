@@ -1,6 +1,8 @@
 package dev.lostf1sh.syncthing.ui.home
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +20,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -27,6 +31,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.ripple
 import dev.lostf1sh.syncthing.data.model.BandwidthSample
 
 @Composable
@@ -40,10 +45,14 @@ fun InsightsCard(
     val maxBps = bandwidth.maxOfOrNull { maxOf(it.inBytesPerSec, it.outBytesPerSec) } ?: 0L
 
     Card(
-        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
             containerColor = scheme.secondaryContainer.copy(alpha = 0.55f),
@@ -69,6 +78,7 @@ fun InsightsCard(
                     tint = scheme.primary,
                     modifier = Modifier.weight(1f),
                 )
+                VerticalDivider(modifier = Modifier.height(24.dp))
                 ThroughputTile(
                     icon = Icons.Default.Upload,
                     label = "Out",

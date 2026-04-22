@@ -2,6 +2,7 @@ package dev.lostf1sh.syncthing.ui.devices
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,17 +26,18 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButtonMenu
-import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumExtendedFloatingActionButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +54,8 @@ import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 import dev.lostf1sh.syncthing.ui.qr.ShowQrDialog
 
+private enum class DeviceFilter { All, Online, Offline }
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DevicesScreen(
@@ -65,10 +69,7 @@ fun DevicesScreen(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    val fabVisible by remember {
-        derivedStateOf { listState.firstVisibleItemIndex == 0 }
-    }
-    var fabExpanded by rememberSaveable { mutableStateOf(false) }
+    var selectedFilter by rememberSaveable { mutableStateOf(DeviceFilter.All) }
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
     var showingLocalQr by rememberSaveable { mutableStateOf(false) }
@@ -79,6 +80,16 @@ fun DevicesScreen(
             deviceId = localDeviceId,
             onDismiss = { showingLocalQr = false },
         )
+    }
+
+    val filteredDevices = remember(devices, connections, selectedFilter) {
+        devices.filter { device ->
+            when (selectedFilter) {
+                DeviceFilter.All -> true
+                DeviceFilter.Online -> connections[device.deviceID] == true
+                DeviceFilter.Offline -> connections[device.deviceID] != true
+            }
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -99,6 +110,25 @@ fun DevicesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = selectedFilter == DeviceFilter.All,
+                            onClick = { selectedFilter = DeviceFilter.All },
+                            label = { Text("All") },
+                        )
+                        FilterChip(
+                            selected = selectedFilter == DeviceFilter.Online,
+                            onClick = { selectedFilter = DeviceFilter.Online },
+                            label = { Text("Online") },
+                        )
+                        FilterChip(
+                            selected = selectedFilter == DeviceFilter.Offline,
+                            onClick = { selectedFilter = DeviceFilter.Offline },
+                            label = { Text("Offline") },
+                        )
+                    }
+                }
                 if (!localDeviceId.isNullOrBlank()) {
                     item {
                         LocalDeviceIdCard(
@@ -110,11 +140,26 @@ fun DevicesScreen(
                         )
                     }
                 }
-                if (devices.isEmpty()) {
+                if (refreshing && devices.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LoadingIndicator()
+                        }
+                    }
+                } else if (filteredDevices.isEmpty()) {
                     item {
                         EmptyState(
-                            title = "No remote devices",
-                            description = "Add your phone's device ID in the Syncthing Web GUI on your PC, then add the PC here.",
+                            title = if (devices.isEmpty()) "No remote devices" else "No matching devices",
+                            description = if (devices.isEmpty()) {
+                                "Add your phone's device ID in the Syncthing Web GUI on your PC, then add the PC here."
+                            } else {
+                                "Try a different filter to view other devices."
+                            },
                             actionLabel = "Add Device",
                             onAction = onAddDevice,
                             modifier = Modifier
@@ -123,7 +168,7 @@ fun DevicesScreen(
                         )
                     }
                 }
-                items(devices, key = { it.deviceID }) { device ->
+                items(filteredDevices, key = { it.deviceID }) { device ->
                     DeviceCard(
                         device = device,
                         isConnected = connections[device.deviceID] == true,
@@ -135,39 +180,23 @@ fun DevicesScreen(
             }
         }
 
-        // Expressive FAB Menu — expandable with QR scan + manual add
-        FloatingActionButtonMenu(
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
-            expanded = fabExpanded,
-            button = {
-                ToggleFloatingActionButton(
-                    checked = fabExpanded,
-                    onCheckedChange = { fabExpanded = !fabExpanded },
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add device",
-                    )
-                }
-            },
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FloatingActionButtonMenuItem(
-                onClick = {
-                    fabExpanded = false
-                    onScanQr?.invoke()
-                },
-                icon = { Icon(Icons.Default.QrCode, contentDescription = null) },
-                text = { Text("Scan QR Code") },
-            )
-            FloatingActionButtonMenuItem(
-                onClick = {
-                    fabExpanded = false
-                    onAddDevice?.invoke()
-                },
+            if (onScanQr != null) {
+                SmallExtendedFloatingActionButton(
+                    onClick = onScanQr,
+                    icon = { Icon(Icons.Default.QrCode, contentDescription = null) },
+                    text = { Text("Scan") },
+                )
+            }
+            MediumExtendedFloatingActionButton(
+                onClick = { onAddDevice?.invoke() },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Enter Device ID") },
+                text = { Text("Add Device") },
             )
         }
     }
@@ -220,19 +249,6 @@ private fun LocalDeviceIdCard(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(
-                    onClick = onCopy,
-                    shapes = ButtonDefaults.shapes(),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize),
-                    )
-                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Copy ID")
-                }
                 OutlinedButton(
                     onClick = onShowQr,
                     shapes = ButtonDefaults.shapes(),
@@ -245,6 +261,19 @@ private fun LocalDeviceIdCard(
                     )
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text("QR Code")
+                }
+                FilledTonalButton(
+                    onClick = onCopy,
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Copy ID")
                 }
             }
         }
@@ -263,7 +292,11 @@ private fun DeviceCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),

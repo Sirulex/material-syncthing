@@ -5,16 +5,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -23,13 +27,20 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -62,8 +73,15 @@ fun SettingsScreen(
     val notifyDeviceConnected by settingsStore.notifyDeviceConnected.collectAsStateWithLifecycle(initialValue = false)
     val schedulerEnabled by settingsStore.schedulerEnabled.collectAsStateWithLifecycle(initialValue = false)
     val schedulerStartHour by settingsStore.schedulerStartHour.collectAsStateWithLifecycle(initialValue = 23)
+    val schedulerStartMinute by settingsStore.schedulerStartMinute.collectAsStateWithLifecycle(initialValue = 0)
     val schedulerEndHour by settingsStore.schedulerEndHour.collectAsStateWithLifecycle(initialValue = 6)
+    val schedulerEndMinute by settingsStore.schedulerEndMinute.collectAsStateWithLifecycle(initialValue = 0)
     val notifyErrors by settingsStore.notifyErrors.collectAsStateWithLifecycle(initialValue = true)
+    var query by rememberSaveable { mutableStateOf("") }
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
+
+    val queryTrimmed = query.trim()
 
     Scaffold(
         topBar = {
@@ -89,174 +107,233 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
+            TextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                placeholder = { Text("Search settings") },
+                singleLine = true,
+            )
+
             // --- Run Conditions ---
-            SectionHeader("Run Conditions")
-            SectionCard {
-                SettingsSwitch(
-                    title = "Start on boot",
-                    description = "Start Syncthing when device boots",
-                    checked = runOnBoot,
-                    onCheckedChange = { scope.launch { settingsStore.setRunOnBoot(it) } },
-                )
-                SettingsSwitch(
-                    title = "Wi-Fi only",
-                    description = "Only sync when connected to Wi-Fi",
-                    checked = wifiOnly,
-                    onCheckedChange = { scope.launch { settingsStore.setWifiOnly(it) } },
-                )
-                if (wifiOnly) {
+            if (queryTrimmed.isBlank() || "run conditions wifi battery boot".contains(queryTrimmed, ignoreCase = true)) {
+                SectionHeader("Run Conditions")
+                SectionCard {
                     SettingsSwitch(
-                        title = "Allow metered Wi-Fi",
-                        description = "Sync on metered Wi-Fi networks",
-                        checked = allowMetered,
-                        onCheckedChange = { scope.launch { settingsStore.setAllowMetered(it) } },
+                        title = "Start on boot",
+                        description = "Start Syncthing when device boots",
+                        checked = runOnBoot,
+                        onCheckedChange = { scope.launch { settingsStore.setRunOnBoot(it) } },
+                    )
+                    HorizontalDivider()
+                    SettingsSwitch(
+                        title = "Wi-Fi only",
+                        description = "Only sync when connected to Wi-Fi",
+                        checked = wifiOnly,
+                        onCheckedChange = { scope.launch { settingsStore.setWifiOnly(it) } },
+                    )
+                    if (wifiOnly) {
+                        HorizontalDivider()
+                        SettingsSwitch(
+                            title = "Allow metered Wi-Fi",
+                            description = "Sync on metered Wi-Fi networks",
+                            checked = allowMetered,
+                            onCheckedChange = { scope.launch { settingsStore.setAllowMetered(it) } },
+                        )
+                    }
+                    HorizontalDivider()
+                    SettingsSwitch(
+                        title = "Charging only",
+                        description = "Only sync while charging",
+                        checked = chargingOnly,
+                        onCheckedChange = { scope.launch { settingsStore.setChargingOnly(it) } },
+                    )
+                    HorizontalDivider()
+                    SettingsSwitch(
+                        title = "Respect battery saver",
+                        description = "Pause syncing when battery saver is active",
+                        checked = respectBatterySaver,
+                        onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
                     )
                 }
-                SettingsSwitch(
-                    title = "Charging only",
-                    description = "Only sync while charging",
-                    checked = chargingOnly,
-                    onCheckedChange = { scope.launch { settingsStore.setChargingOnly(it) } },
-                )
-                SettingsSwitch(
-                    title = "Respect battery saver",
-                    description = "Pause syncing when battery saver is active",
-                    checked = respectBatterySaver,
-                    onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
-                )
             }
 
             // --- Scheduler ---
-            SectionHeader("Scheduler")
-            SectionCard {
-                SettingsSwitch(
-                    title = "Enable time scheduler",
-                    description = "Only allow sync within set hours",
-                    checked = schedulerEnabled,
-                    onCheckedChange = { scope.launch { settingsStore.setSchedulerEnabled(it) } },
-                )
-                if (schedulerEnabled) {
-                    ListItem(
-                        headlineContent = { Text("Start hour: ${schedulerStartHour}:00") },
-                        trailingContent = {
-                            Slider(
-                                value = schedulerStartHour.toFloat(),
-                                onValueChange = { scope.launch { settingsStore.setSchedulerStartHour(it.toInt()) } },
-                                valueRange = 0f..23f,
-                                steps = 22,
-                                modifier = Modifier.width(120.dp),
-                            )
-                        },
+            if (queryTrimmed.isBlank() || "scheduler time schedule".contains(queryTrimmed, ignoreCase = true)) {
+                SectionHeader("Scheduler")
+                SectionCard {
+                    SettingsSwitch(
+                        title = "Enable time scheduler",
+                        description = "Only allow sync within set hours",
+                        checked = schedulerEnabled,
+                        onCheckedChange = { scope.launch { settingsStore.setSchedulerEnabled(it) } },
                     )
-                    ListItem(
-                        headlineContent = { Text("End hour: ${schedulerEndHour}:00") },
-                        trailingContent = {
-                            Slider(
-                                value = schedulerEndHour.toFloat(),
-                                onValueChange = { scope.launch { settingsStore.setSchedulerEndHour(it.toInt()) } },
-                                valueRange = 0f..23f,
-                                steps = 22,
-                                modifier = Modifier.width(120.dp),
-                            )
-                        },
-                    )
+                    if (schedulerEnabled) {
+                        HorizontalDivider()
+                        ListItem(
+                            headlineContent = { Text("Start time") },
+                            supportingContent = { Text(formatClock(schedulerStartHour, schedulerStartMinute)) },
+                            modifier = Modifier.clickable { showStartPicker = true },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                        ListItem(
+                            headlineContent = { Text("End time") },
+                            supportingContent = { Text(formatClock(schedulerEndHour, schedulerEndMinute)) },
+                            modifier = Modifier.clickable { showEndPicker = true },
+                            colors = transparentListItemColors(),
+                        )
+                    }
                 }
             }
 
             // --- Notifications ---
-            SectionHeader("Notifications")
-            SectionCard {
-                SettingsSwitch(
-                    title = "Sync complete",
-                    description = "Notify when folder finishes syncing",
-                    checked = notifySyncComplete,
-                    onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
-                )
-                SettingsSwitch(
-                    title = "Device connected",
-                    description = "Notify when device connects",
-                    checked = notifyDeviceConnected,
-                    onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
-                )
-                SettingsSwitch(
-                    title = "Errors",
-                    description = "Notify on sync errors",
-                    checked = notifyErrors,
-                    onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
-                )
+            if (queryTrimmed.isBlank() || "notification".contains(queryTrimmed, ignoreCase = true)) {
+                SectionHeader("Notifications")
+                SectionCard {
+                    SettingsSwitch(
+                        title = "Sync complete",
+                        description = "Notify when folder finishes syncing",
+                        checked = notifySyncComplete,
+                        onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
+                    )
+                    HorizontalDivider()
+                    SettingsSwitch(
+                        title = "Device connected",
+                        description = "Notify when device connects",
+                        checked = notifyDeviceConnected,
+                        onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
+                    )
+                    HorizontalDivider()
+                    SettingsSwitch(
+                        title = "Errors",
+                        description = "Notify on sync errors",
+                        checked = notifyErrors,
+                        onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
+                    )
+                }
             }
 
             // --- Tools ---
-            SectionHeader("Tools")
-            SectionCard {
-                if (onProfilesClick != null) {
+            if (queryTrimmed.isBlank() || "tools profile diagnostics error language".contains(queryTrimmed, ignoreCase = true)) {
+                SectionHeader("Tools")
+                SectionCard {
+                    if (onProfilesClick != null) {
+                        ListItem(
+                            headlineContent = { Text("Sync Profiles") },
+                            supportingContent = { Text("Wi-Fi only, charging, night sync") },
+                            modifier = Modifier.clickable { onProfilesClick() },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                    }
+                    if (onErrorCenterClick != null) {
+                        ListItem(
+                            headlineContent = { Text("Error Center") },
+                            supportingContent = { Text("View and resolve sync issues") },
+                            modifier = Modifier.clickable { onErrorCenterClick() },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                    }
+                    if (onDiagnosticsClick != null) {
+                        ListItem(
+                            headlineContent = { Text("Diagnostics") },
+                            supportingContent = { Text("Export debug info for troubleshooting") },
+                            modifier = Modifier.clickable { onDiagnosticsClick() },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                    }
+                    if (onBatteryWizardClick != null) {
+                        ListItem(
+                            headlineContent = { Text("Reliability") },
+                            supportingContent = { Text("Battery optimization + OEM autostart") },
+                            modifier = Modifier.clickable { onBatteryWizardClick() },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                    }
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     ListItem(
-                        headlineContent = { Text("Sync Profiles") },
-                        supportingContent = { Text("Wi-Fi only, charging, night sync") },
-                        modifier = Modifier.clickable { onProfilesClick() },
+                        headlineContent = { Text("Language") },
+                        supportingContent = { Text("App language / Uygulama dili") },
+                        modifier = Modifier.clickable {
+                            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS)
+                                    .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                                try { context.startActivity(intent) } catch (_: Exception) { }
+                            } else {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                    .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                                try { context.startActivity(intent) } catch (_: Exception) { }
+                            }
+                        },
                         colors = transparentListItemColors(),
                     )
-                }
-                if (onErrorCenterClick != null) {
-                    ListItem(
-                        headlineContent = { Text("Error Center") },
-                        supportingContent = { Text("View and resolve sync issues") },
-                        modifier = Modifier.clickable { onErrorCenterClick() },
-                        colors = transparentListItemColors(),
+                    HorizontalDivider()
+                    AssistChip(
+                        onClick = { onDiagnosticsClick?.invoke() },
+                        label = { Text("Learn more") },
+                        leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
+                        modifier = Modifier.padding(16.dp),
                     )
                 }
-                if (onDiagnosticsClick != null) {
-                    ListItem(
-                        headlineContent = { Text("Diagnostics") },
-                        supportingContent = { Text("Export debug info for troubleshooting") },
-                        modifier = Modifier.clickable { onDiagnosticsClick() },
-                        colors = transparentListItemColors(),
-                    )
-                }
-                if (onBatteryWizardClick != null) {
-                    ListItem(
-                        headlineContent = { Text("Reliability") },
-                        supportingContent = { Text("Battery optimization + OEM autostart") },
-                        modifier = Modifier.clickable { onBatteryWizardClick() },
-                        colors = transparentListItemColors(),
-                    )
-                }
-                val context = androidx.compose.ui.platform.LocalContext.current
-                ListItem(
-                    headlineContent = { Text("Language") },
-                    supportingContent = { Text("App language / Uygulama dili") },
-                    modifier = Modifier.clickable {
-                        if (android.os.Build.VERSION.SDK_INT >= 33) {
-                            val intent = android.content.Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS)
-                                .setData(android.net.Uri.fromParts("package", context.packageName, null))
-                            try { context.startActivity(intent) } catch (_: Exception) { }
-                        } else {
-                            val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                                .setData(android.net.Uri.fromParts("package", context.packageName, null))
-                            try { context.startActivity(intent) } catch (_: Exception) { }
-                        }
-                    },
-                    colors = transparentListItemColors(),
-                )
             }
 
             // --- About ---
-            SectionHeader("About")
-            SectionCard {
-                ListItem(
-                    headlineContent = { Text("Version") },
-                    supportingContent = { Text("0.1.0") },
-                    colors = transparentListItemColors(),
-                )
-                ListItem(
-                    headlineContent = { Text("License") },
-                    supportingContent = { Text("MPL-2.0") },
-                    colors = transparentListItemColors(),
-                )
+            if (queryTrimmed.isBlank() || "about version license".contains(queryTrimmed, ignoreCase = true)) {
+                SectionHeader("About")
+                SectionCard {
+                    ListItem(
+                        headlineContent = { Text("Version") },
+                        supportingContent = { Text("0.1.0") },
+                        colors = transparentListItemColors(),
+                    )
+                    HorizontalDivider()
+                    ListItem(
+                        headlineContent = { Text("License") },
+                        supportingContent = { Text("MPL-2.0") },
+                        colors = transparentListItemColors(),
+                    )
+                }
             }
 
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showStartPicker) {
+        SchedulerTimePickerDialog(
+            title = "Select start time",
+            initialHour = schedulerStartHour,
+            initialMinute = schedulerStartMinute,
+            onDismiss = { showStartPicker = false },
+            onConfirm = { hour, minute ->
+                scope.launch {
+                    settingsStore.setSchedulerStartHour(hour)
+                    settingsStore.setSchedulerStartMinute(minute)
+                }
+            },
+        )
+    }
+
+    if (showEndPicker) {
+        SchedulerTimePickerDialog(
+            title = "Select end time",
+            initialHour = schedulerEndHour,
+            initialMinute = schedulerEndMinute,
+            onDismiss = { showEndPicker = false },
+            onConfirm = { hour, minute ->
+                scope.launch {
+                    settingsStore.setSchedulerEndHour(hour)
+                    settingsStore.setSchedulerEndMinute(minute)
+                }
+            },
+        )
     }
 }
 
@@ -308,3 +385,35 @@ private fun SettingsSwitch(
         colors = transparentListItemColors(),
     )
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SchedulerTimePickerDialog(
+    title: String,
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit,
+) {
+    val state = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { TimePicker(state = state) },
+        confirmButton = {
+            TextButton(onClick = {
+                onConfirm(state.hour, state.minute)
+                onDismiss()
+            }) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+private fun formatClock(hour: Int, minute: Int): String = "%02d:%02d".format(hour, minute)

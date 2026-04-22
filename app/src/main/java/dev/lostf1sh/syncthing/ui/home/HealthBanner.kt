@@ -19,10 +19,12 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +37,7 @@ import dev.lostf1sh.syncthing.data.model.SyncHealth
 @Composable
 fun HealthBanner(
     health: SyncHealth,
+    onQuickAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val (icon, label, tint) = healthDisplay(health.overall)
@@ -88,6 +91,21 @@ fun HealthBanner(
             // Expressive wavy progress when syncing — living feedback
             if (isSyncing) {
                 Spacer(Modifier.size(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularWavyProgressIndicator(modifier = Modifier.size(32.dp), color = tint)
+                    if (onQuickAction != null) {
+                        SmallExtendedFloatingActionButton(
+                            onClick = onQuickAction,
+                            icon = { Icon(Icons.Default.Sync, contentDescription = null) },
+                            text = { Text("Details") },
+                        )
+                    }
+                }
+                Spacer(Modifier.size(8.dp))
                 LinearWavyProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
                     color = tint,

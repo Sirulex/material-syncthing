@@ -40,7 +40,9 @@ class SettingsStore(private val context: Context) {
     // Scheduler (time range when syncing is allowed)
     val schedulerEnabled: Flow<Boolean> = pref(Keys.SCHEDULER_ENABLED, false)
     val schedulerStartHour: Flow<Int> = pref(Keys.SCHEDULER_START_HOUR, 23)
+    val schedulerStartMinute: Flow<Int> = pref(Keys.SCHEDULER_START_MINUTE, 0)
     val schedulerEndHour: Flow<Int> = pref(Keys.SCHEDULER_END_HOUR, 6)
+    val schedulerEndMinute: Flow<Int> = pref(Keys.SCHEDULER_END_MINUTE, 0)
 
     // Per-folder sync conditions (JSON map)
     val folderConditions: Flow<String> = pref(Keys.FOLDER_CONDITIONS, "{}")
@@ -64,7 +66,9 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setSchedulerEnabled(value: Boolean) = set(Keys.SCHEDULER_ENABLED, value)
     suspend fun setSchedulerStartHour(value: Int) = set(Keys.SCHEDULER_START_HOUR, value)
+    suspend fun setSchedulerStartMinute(value: Int) = set(Keys.SCHEDULER_START_MINUTE, value)
     suspend fun setSchedulerEndHour(value: Int) = set(Keys.SCHEDULER_END_HOUR, value)
+    suspend fun setSchedulerEndMinute(value: Int) = set(Keys.SCHEDULER_END_MINUTE, value)
     suspend fun setFolderConditions(json: String) = set(Keys.FOLDER_CONDITIONS, json)
 
     private fun pref(key: Preferences.Key<Boolean>, default: Boolean): Flow<Boolean> =
@@ -96,7 +100,9 @@ class SettingsStore(private val context: Context) {
         val GUI_PORT = intPreferencesKey("gui_port")
         val SCHEDULER_ENABLED = booleanPreferencesKey("scheduler_enabled")
         val SCHEDULER_START_HOUR = intPreferencesKey("scheduler_start_hour")
+        val SCHEDULER_START_MINUTE = intPreferencesKey("scheduler_start_minute")
         val SCHEDULER_END_HOUR = intPreferencesKey("scheduler_end_hour")
+        val SCHEDULER_END_MINUTE = intPreferencesKey("scheduler_end_minute")
         val FOLDER_CONDITIONS = stringPreferencesKey("folder_conditions")
     }
 }

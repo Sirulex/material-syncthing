@@ -53,10 +53,12 @@ class SyncConstraints(private val context: Context) {
             settings.respectBatterySaver,
             settings.schedulerEnabled,
             settings.schedulerStartHour,
+            settings.schedulerStartMinute,
             settings.schedulerEndHour,
+            settings.schedulerEndMinute,
             observeCharging(),
             observeBatterySaver(),
-            observeCurrentHour(),
+            observeCurrentMinuteOfDay(),
         ) { args: Array<Any?> ->
             @Suppress("UNCHECKED_CAST")
             decide(
@@ -67,10 +69,12 @@ class SyncConstraints(private val context: Context) {
                 respectBatterySaver = args[4] as Boolean,
                 schedulerEnabled = args[5] as Boolean,
                 schedulerStartHour = args[6] as Int,
-                schedulerEndHour = args[7] as Int,
-                charging = args[8] as Boolean,
-                batterySaver = args[9] as Boolean,
-                currentHour = args[10] as Int,
+                schedulerStartMinute = args[7] as Int,
+                schedulerEndHour = args[8] as Int,
+                schedulerEndMinute = args[9] as Int,
+                charging = args[10] as Boolean,
+                batterySaver = args[11] as Boolean,
+                currentMinuteOfDay = args[12] as Int,
             )
         }.distinctUntilChanged()
     }
@@ -83,10 +87,12 @@ class SyncConstraints(private val context: Context) {
         respectBatterySaver: Boolean,
         schedulerEnabled: Boolean = false,
         schedulerStartHour: Int = 23,
+        schedulerStartMinute: Int = 0,
         schedulerEndHour: Int = 6,
+        schedulerEndMinute: Int = 0,
         charging: Boolean,
         batterySaver: Boolean,
-        currentHour: Int,
+        currentMinuteOfDay: Int,
     ): ConstraintState {
         // Battery saver check
         if (respectBatterySaver && batterySaver) {
@@ -100,13 +106,19 @@ class SyncConstraints(private val context: Context) {
 
         // Scheduler check
         if (schedulerEnabled) {
-            val inRange = if (schedulerStartHour < schedulerEndHour) {
-                currentHour in schedulerStartHour until schedulerEndHour
+            val startMinuteOfDay = (schedulerStartHour.coerceIn(0, 23) * 60) + schedulerStartMinute.coerceIn(0, 59)
+            val endMinuteOfDay = (schedulerEndHour.coerceIn(0, 23) * 60) + schedulerEndMinute.coerceIn(0, 59)
+            val inRange = if (startMinuteOfDay < endMinuteOfDay) {
+                currentMinuteOfDay in startMinuteOfDay until endMinuteOfDay
+            } else if (startMinuteOfDay > endMinuteOfDay) {
+                currentMinuteOfDay >= startMinuteOfDay || currentMinuteOfDay < endMinuteOfDay
             } else {
-                currentHour >= schedulerStartHour || currentHour < schedulerEndHour
+                true
             }
             if (!inRange) {
-                return ConstraintState.ShouldPause("Outside scheduled hours (${schedulerStartHour}:00 - ${schedulerEndHour}:00)")
+                return ConstraintState.ShouldPause(
+                    "Outside scheduled hours (${formatTime(schedulerStartHour, schedulerStartMinute)} - ${formatTime(schedulerEndHour, schedulerEndMinute)})"
+                )
             }
         }
 
@@ -216,12 +228,17 @@ class SyncConstraints(private val context: Context) {
         }
     }.distinctUntilChanged()
 
-    private fun observeCurrentHour(): Flow<Int> = flow {
+    private fun observeCurrentMinuteOfDay(): Flow<Int> = flow {
         while (currentCoroutineContext().isActive) {
-            emit(Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
+            val now = Calendar.getInstance()
+            emit(now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE))
             delay(60_000)
         }
     }.distinctUntilChanged()
+
+    private fun formatTime(hour: Int, minute: Int): String {
+        return "%02d:%02d".format(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+    }
 
     private fun isCharging(): Boolean {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager

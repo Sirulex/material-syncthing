@@ -3,7 +3,7 @@ package dev.lostf1sh.syncthing.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,6 +63,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.unit.IntOffset
 
 @Composable
 fun AppNavigation(
@@ -191,34 +192,35 @@ fun AppNavigation(
 
     // Expressive predictive-back transitions — nav-compose drives progress
     // from the system back gesture when enableOnBackInvokedCallback=true.
-    val spatialSpec = tween<Float>(durationMillis = 350)
+    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val slideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
     NavHost(
         navController = navController,
         startDestination = startDest,
         enterTransition = {
             slideIntoContainer(
                 towards = SlideDirection.Start,
-                animationSpec = tween(350),
+                animationSpec = slideSpec,
             ) + fadeIn(animationSpec = spatialSpec)
         },
         exitTransition = {
             slideOutOfContainer(
                 towards = SlideDirection.Start,
-                animationSpec = tween(350),
+                animationSpec = slideSpec,
                 targetOffset = { it / 6 },
             ) + fadeOut(animationSpec = spatialSpec)
         },
         popEnterTransition = {
             slideIntoContainer(
                 towards = SlideDirection.End,
-                animationSpec = tween(350),
+                animationSpec = slideSpec,
                 initialOffset = { it / 6 },
             ) + fadeIn(animationSpec = spatialSpec)
         },
         popExitTransition = {
             slideOutOfContainer(
                 towards = SlideDirection.End,
-                animationSpec = tween(350),
+                animationSpec = slideSpec,
             ) + fadeOut(animationSpec = spatialSpec)
         },
     ) {

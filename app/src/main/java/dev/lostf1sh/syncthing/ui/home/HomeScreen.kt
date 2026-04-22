@@ -2,9 +2,7 @@ package dev.lostf1sh.syncthing.ui.home
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
@@ -75,6 +73,7 @@ import dev.lostf1sh.syncthing.ui.devices.DevicesScreen
 import dev.lostf1sh.syncthing.ui.folders.FoldersScreen
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -240,7 +239,8 @@ private fun ExpressiveHomeTab(
     val scale = remember { Animatable(1f) }
     val offsetX = remember { Animatable(0f) }
     var hasAnimatedSelectionChange by remember { mutableStateOf(false) }
-    val motionSpec = tween<Float>(durationMillis = 250, easing = FastOutSlowInEasing)
+    val motionSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val iconMotionSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
 
     LaunchedEffect(selectedPage) {
         if (!hasAnimatedSelectionChange) {
@@ -276,7 +276,7 @@ private fun ExpressiveHomeTab(
         } else {
             MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)
         },
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
         label = "tabContainerColor",
     )
     val contentColor by animateColorAsState(
@@ -285,7 +285,7 @@ private fun ExpressiveHomeTab(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
         label = "tabContentColor",
     )
     val borderColor by animateColorAsState(
@@ -294,11 +294,12 @@ private fun ExpressiveHomeTab(
         } else {
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
         },
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
         label = "tabBorderColor",
     )
     val iconSize by animateDpAsState(
         targetValue = if (selected) 22.dp else 20.dp,
+        animationSpec = iconMotionSpec,
         label = "tabIconSize",
     )
 

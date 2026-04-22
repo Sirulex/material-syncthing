@@ -17,12 +17,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -46,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
@@ -71,6 +77,7 @@ fun DeviceDetailScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showDeleteDialog by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -149,6 +156,38 @@ fun DeviceDetailScreen(
                     )
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text("Copy ID")
+                }
+            }
+
+            if (connection != null && connection.connected) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilledTonalIconButton(onClick = {
+                        clipboard.setText(AnnotatedString(device.deviceID))
+                    }) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy ID")
+                    }
+                    FilledTonalIconButton(onClick = {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, device.deviceID)
+                        }
+                        val chooser = android.content.Intent.createChooser(intent, "Share device ID")
+                        try {
+                            context.startActivity(chooser)
+                        } catch (_: Exception) {
+                            clipboard.setText(AnnotatedString(device.deviceID))
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Share ID")
+                    }
+                    CircularWavyProgressIndicator(
+                        modifier = Modifier.size(32.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
 
@@ -263,6 +302,13 @@ fun DeviceDetailScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+            AssistChip(
+                onClick = { },
+                label = { Text("Learn more") },
+                leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
+            )
 
             // Can't remove the local device from itself.
             if (onRemove != null && !isLocal) {

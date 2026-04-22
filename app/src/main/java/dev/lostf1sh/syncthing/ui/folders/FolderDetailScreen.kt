@@ -22,11 +22,15 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -152,6 +156,15 @@ fun FolderDetailScreen(
             if (status.state == "syncing" && status.globalBytes > 0) {
                 Spacer(Modifier.height(12.dp))
                 val progress = status.inSyncBytes.toFloat() / status.globalBytes.toFloat()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    CircularWavyProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
                 LinearWavyProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.fillMaxWidth(),
@@ -227,6 +240,20 @@ fun FolderDetailScreen(
                     },
                 )
             }
+
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalIconButton(onClick = {
+                    onRescan?.invoke(folder.id)
+                }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Rescan")
+                }
+                FilledTonalIconButton(onClick = {
+                    onBrowse?.invoke(folder.id)
+                }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Browse")
+                }
+            }
             if (status.pullErrors > 0) {
                 ListItem(
                     headlineContent = { Text("Pull Errors") },
@@ -273,6 +300,13 @@ fun FolderDetailScreen(
                     },
                 )
             }
+
+            Spacer(Modifier.height(8.dp))
+            AssistChip(
+                onClick = { },
+                label = { Text("Folder help") },
+                leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
+            )
 
             Spacer(Modifier.height(24.dp))
 
