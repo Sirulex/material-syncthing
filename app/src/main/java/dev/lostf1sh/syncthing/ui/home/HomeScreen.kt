@@ -85,6 +85,7 @@ fun HomeScreen(
     devices: List<Device>,
     deviceConnections: Map<String, Boolean>,
     onFolderClick: (String) -> Unit,
+    onAddFolder: () -> Unit,
     onDeviceClick: (String) -> Unit,
     onAddDevice: () -> Unit,
     onScanQr: () -> Unit,
@@ -166,6 +167,7 @@ fun HomeScreen(
                         folderStates = folderStates,
                         folderStatuses = folderStatuses,
                         onFolderClick = onFolderClick,
+                        onAddFolder = onAddFolder,
                         onRefresh = onRefresh,
                     )
                     2 -> DevicesScreen(

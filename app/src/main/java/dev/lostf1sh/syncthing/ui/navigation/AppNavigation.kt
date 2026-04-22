@@ -31,6 +31,7 @@ import android.content.Context
 import dev.lostf1sh.syncthing.ui.devices.AddDeviceScreen
 import dev.lostf1sh.syncthing.ui.devices.DeviceDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.AcceptFolderDialog
+import dev.lostf1sh.syncthing.ui.folders.AddFolderScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderBrowserScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.IgnoreEditorScreen
@@ -244,6 +245,7 @@ fun AppNavigation(
                 devices = devices,
                 deviceConnections = deviceConnections,
                 onFolderClick = { navController.navigate(FolderRoute(it)) },
+                onAddFolder = { navController.navigate(AddFolderRoute) },
                 onDeviceClick = { navController.navigate(DeviceRoute(it)) },
                 onAddDevice = { navController.navigate(AddDeviceRoute()) },
                 onScanQr = { navController.navigate(QrScannerRoute) },
@@ -654,6 +656,47 @@ fun AppNavigation(
                     }
                 },
                 onScanQr = { navController.navigate(QrScannerRoute) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable<AddFolderRoute> {
+            AddFolderScreen(
+                onAdd = { folderId, label, path, type ->
+                    val folderRepo = container.folderRepository
+                        ?: return@AddFolderScreen Result.failure(
+                            Exception("Syncthing service not running")
+                        )
+                    val system = appState.systemStatus.value
+                    val localId = system?.myID.orEmpty()
+                    if (localId.isBlank()) {
+                        return@AddFolderScreen Result.failure(Exception("Local device ID unavailable"))
+                    }
+                    try {
+                        if (folders.any { it.id.equals(folderId, ignoreCase = true) }) {
+                            return@AddFolderScreen Result.failure(Exception("Folder ID already exists"))
+                        }
+                        folderRepo.addFolder(
+                            Folder(
+                                id = folderId,
+                                label = label,
+                                path = path,
+                                type = type,
+                                devices = listOf(FolderDevice(deviceID = localId)),
+                            )
+                        )
+                        appState.setFolders(folderRepo.folders())
+                        appState.setDiagnostic(null)
+                        appState.pushLog("App: folder added $folderId")
+                        Result.success(Unit)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                        appState.setDiagnostic("Could not add folder: $detail")
+                        appState.pushLog("App: could not add folder $folderId: $detail")
+                        Result.failure(e)
+                    }
+                },
                 onBack = { navController.popBackStack() },
             )
         }
