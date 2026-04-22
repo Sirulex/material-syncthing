@@ -1,6 +1,7 @@
 package dev.lostf1sh.syncthing.di
 
 import android.content.Context
+import android.util.Log
 import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.events.EventStream
 import dev.lostf1sh.syncthing.data.ConflictDetector
@@ -15,25 +16,59 @@ import dev.lostf1sh.syncthing.data.NotificationPolicy
 import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SyncConstraints
 import dev.lostf1sh.syncthing.data.SystemRepository
+import dev.lostf1sh.syncthing.native.NativeLauncher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.coroutines.coroutineContext
 
 class AppContainer(private val appContext: Context) {
 
+    private companion object {
+        const val TAG = "AppContainer"
+        const val DIAGNOSTIC_THROTTLE_MS = 5_000L
+    }
+
     val settingsStore = SettingsStore(appContext)
     val syncConstraints = SyncConstraints(appContext)
     val appState = AppState()
+    private val nativeLauncher = NativeLauncher.fromContext(appContext)
     private val notificationPolicy = NotificationPolicy(appContext)
 
     /** Process-scope for collectors; survives Activity/Compose lifecycles. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    init {
+        appScope.launch(Dispatchers.IO) {
+            try {
+                appState.setLocalDeviceId(nativeLauncher.getDeviceId())
+            } catch (_: Exception) {
+            }
+        }
+        appScope.launch {
+            settingsStore.notifySyncComplete.collect {
+                notificationPolicy.notifySyncComplete = it
+            }
+        }
+        appScope.launch {
+            settingsStore.notifyDeviceConnected.collect {
+                notificationPolicy.notifyDeviceConnected = it
+            }
+        }
+        appScope.launch {
+            settingsStore.notifyErrors.collect {
+                notificationPolicy.notifyErrors = it
+            }
+        }
+    }
 
     /**
      * Bundle of everything that shares a single SyncthingClient lifetime.
@@ -46,6 +81,7 @@ class AppContainer(private val appContext: Context) {
         val deviceRepository: DeviceRepository,
         val systemRepository: SystemRepository,
         val eventRepository: EventRepository,
+        val port: Int,
     )
 
     private val lock = Any()
@@ -58,6 +94,8 @@ class AppContainer(private val appContext: Context) {
     private var lastTotalIn: Long = -1
     private var lastTotalOut: Long = -1
     private var lastSampleAt: Long = 0
+    private var lastDiagnostic: String? = null
+    private var lastDiagnosticAt: Long = 0
 
     val client: SyncthingClient? get() = handles?.client
     val folderRepository: FolderRepository? get() = handles?.folderRepository
@@ -82,6 +120,7 @@ class AppContainer(private val appContext: Context) {
                 deviceRepository = DeviceRepository(newClient),
                 systemRepository = SystemRepository(newClient),
                 eventRepository = EventRepository(EventStream(newClient)),
+                port = port,
             )
             handles = h
             collectorJob = appScope.launch { runCollectors(h) }
@@ -105,11 +144,17 @@ class AppContainer(private val appContext: Context) {
     }
 
     private suspend fun runCollectors(h: ClientHandles) = coroutineScope {
+        waitForApiReady(h)
+
         // Identify the local device once; myID is stable for the process lifetime.
         launch {
             try {
                 appState.setLocalDeviceId(h.systemRepository.status().myID)
-            } catch (_: Exception) { }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                reportDiagnostic("Could not read local Syncthing device ID", e)
+            }
         }
 
         // Event stream — live state/device/config updates.
@@ -137,7 +182,8 @@ class AppContainer(private val appContext: Context) {
         launch {
             h.eventRepository.pendingDevicesChanged().collect {
                 try { appState.setPendingDevices(h.client.pendingDevices()) }
-                catch (_: Exception) { }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) { reportDiagnostic("Could not refresh pending devices", e) }
             }
         }
 
@@ -196,6 +242,54 @@ class AppContainer(private val appContext: Context) {
         }
     }
 
+    private suspend fun waitForApiReady(h: ClientHandles) {
+        var attempts = 0
+        while (coroutineContext.isActive) {
+            try {
+                if (h.client.ping().ping == "pong") {
+                    clearDiagnostic()
+                    return
+                }
+                if (attempts % 10 == 0) {
+                    reportDiagnostic("Syncthing API on 127.0.0.1:${h.port} did not return pong")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (attempts % 10 == 0) {
+                    reportDiagnostic("Syncthing API is not reachable on 127.0.0.1:${h.port}", e)
+                }
+            }
+            attempts += 1
+            delay(500)
+        }
+    }
+
+    private fun reportDiagnostic(message: String, error: Throwable? = null) {
+        val detail = error?.message?.takeIf { it.isNotBlank() } ?: error?.javaClass?.simpleName
+        val full = if (detail == null) message else "$message: $detail"
+        val now = System.currentTimeMillis()
+        if (full == lastDiagnostic && now - lastDiagnosticAt < DIAGNOSTIC_THROTTLE_MS) return
+        lastDiagnostic = full
+        lastDiagnosticAt = now
+        if (error == null) {
+            Log.w(TAG, full)
+        } else {
+            Log.w(TAG, full, error)
+        }
+        appState.setDiagnostic(full)
+        appState.pushLog("App: $full")
+    }
+
+    private fun clearDiagnostic() {
+        if (lastDiagnostic != null || appState.diagnostic.value != null) {
+            Log.i(TAG, "Syncthing API is reachable")
+        }
+        lastDiagnostic = null
+        lastDiagnosticAt = 0
+        appState.setDiagnostic(null)
+    }
+
     private fun recordBandwidthSample(totalIn: Long, totalOut: Long) {
         val now = System.currentTimeMillis()
         if (lastTotalIn < 0) {
@@ -222,17 +316,32 @@ class AppContainer(private val appContext: Context) {
 
     private suspend fun collectLogs() {
         withContext(Dispatchers.IO) {
-            try {
-                val process = Runtime.getRuntime().exec(
-                    "logcat -d -t 200 -v threadtime SyncthingService:D Syncthing:D lostf1sh:D *:S"
-                )
-                process.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line -> appState.pushLog(line) }
+            val seen = LinkedHashSet<String>()
+            while (coroutineContext.isActive) {
+                try {
+                    val process = Runtime.getRuntime().exec(
+                        "logcat -d -t 200 -v threadtime AppContainer:V EventStream:V SyncthingService:D Syncthing:D lostf1sh:D *:S"
+                    )
+                    process.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { line ->
+                            if (seen.add(line)) {
+                                appState.pushLog(line)
+                                if (seen.size > 500) {
+                                    val iterator = seen.iterator()
+                                    if (iterator.hasNext()) {
+                                        iterator.next()
+                                        iterator.remove()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
                 }
-            } catch (_: Exception) { }
-            // Refresh every 10 seconds
-            delay(10_000)
-            collectLogs()
+                delay(10_000)
+            }
         }
     }
 
@@ -291,7 +400,11 @@ class AppContainer(private val appContext: Context) {
             appState.setFolders(folders)
             appState.setDevices(h.deviceRepository.devices())
             notificationPolicy.updateFolderLabels(folders.associate { it.id to it.label.ifBlank { it.id } })
-        } catch (_: Exception) { }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            reportDiagnostic("Could not refresh Syncthing config", e)
+        }
     }
 
     private suspend fun refreshAll(h: ClientHandles) {
@@ -301,14 +414,27 @@ class AppContainer(private val appContext: Context) {
             appState.setFolders(folders)
             appState.setDevices(devices)
             notificationPolicy.updateFolderLabels(folders.associate { it.id to it.label.ifBlank { it.id } })
+            val systemStatus = h.systemRepository.status()
+            appState.setSystemStatus(systemStatus)
+            appState.setLocalDeviceId(systemStatus.myID)
 
             val statuses = mutableMapOf<String, dev.lostf1sh.syncthing.api.dto.FolderStatus>()
+            val completions = mutableMapOf<String, dev.lostf1sh.syncthing.api.dto.FolderCompletionInfo>()
             for (folder in folders) {
                 try {
                     val s = h.folderRepository.folderStatus(folder.id)
                     statuses[folder.id] = s
                     appState.updateFolderState(folder.id, s.state)
                 } catch (_: Exception) { }
+                for (device in folder.devices) {
+                    if (device.deviceID == systemStatus.myID) continue
+                    try {
+                        completions["${folder.id}:${device.deviceID}"] = h.client.folderCompletion(
+                            folderId = folder.id,
+                            deviceId = device.deviceID,
+                        )
+                    } catch (_: Exception) { }
+                }
             }
             appState.setFolderStatuses(statuses)
 
@@ -322,18 +448,32 @@ class AppContainer(private val appContext: Context) {
                 folders = folders,
                 folderStates = appState.folderStates.value,
                 folderStatuses = statuses,
+                folderCompletions = completions,
                 deviceCount = devices.size,
                 connectedDevices = appState.deviceConnections.value.count { it.value },
             )
             appState.setHealth(health)
-        } catch (_: Exception) { }
+            clearDiagnostic()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            reportDiagnostic("Could not refresh Syncthing state", e)
+        }
 
         try {
             appState.setPendingFolders(h.client.pendingFolders())
-        } catch (_: Exception) { }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            reportDiagnostic("Could not refresh pending folders", e)
+        }
 
         try {
             appState.setPendingDevices(h.client.pendingDevices())
-        } catch (_: Exception) { }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            reportDiagnostic("Could not refresh pending devices", e)
+        }
     }
 }

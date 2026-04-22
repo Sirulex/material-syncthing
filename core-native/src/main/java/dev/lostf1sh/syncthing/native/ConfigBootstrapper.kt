@@ -79,6 +79,15 @@ class ConfigBootstrapper(private val configDir: File) {
         // --- GUI section ---
         val gui = doc.documentElement.getElementsByTagName("gui").item(0) as? org.w3c.dom.Element
         if (gui != null) {
+            if (gui.getAttribute("enabled") != "true") {
+                gui.setAttribute("enabled", "true")
+                changed = true
+            }
+            if (gui.getAttribute("tls") != "false") {
+                gui.setAttribute("tls", "false")
+                changed = true
+            }
+
             // Bind to localhost only
             changed = setElement(doc, gui, "address", GUI_ADDRESS) || changed
 

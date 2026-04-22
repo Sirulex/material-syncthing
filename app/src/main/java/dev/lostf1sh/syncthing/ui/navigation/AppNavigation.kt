@@ -49,8 +49,11 @@ import dev.lostf1sh.syncthing.ui.home.RecentChangesScreen
 import dev.lostf1sh.syncthing.ui.share.ShareTargetScreen
 import dev.lostf1sh.syncthing.ui.share.copyUrisToFolder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
+import dev.lostf1sh.syncthing.ui.qr.ShowQrDialog
+import dev.lostf1sh.syncthing.ui.qr.QrScannerScreen
 import dev.lostf1sh.syncthing.ui.settings.BatteryWizardScreen
 import dev.lostf1sh.syncthing.ui.settings.DiagnosticsScreen
 import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
@@ -59,6 +62,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun AppNavigation(
@@ -91,8 +95,17 @@ fun AppNavigation(
     val pendingDevices by appState.pendingDevices.collectAsStateWithLifecycle()
     val systemStatus by appState.systemStatus.collectAsStateWithLifecycle()
     val logs by appState.logs.collectAsStateWithLifecycle()
+    val diagnostic by appState.diagnostic.collectAsStateWithLifecycle()
     val folderConditionsRaw by container.settingsStore.folderConditions.collectAsStateWithLifecycle(initialValue = "{}")
     val folderConditions = remember(folderConditionsRaw) { parseFolderConditions(folderConditionsRaw) }
+    var showLocalDeviceCode by remember { mutableStateOf(false) }
+
+    if (showLocalDeviceCode) {
+        ShowQrDialog(
+            deviceId = localDeviceId.orEmpty(),
+            onDismiss = { showLocalDeviceCode = false },
+        )
+    }
 
     // Boot the collector loop when the service is Running. Tear down only on
     // terminal states — keep caches warm during transient Paused/Starting so a
@@ -231,7 +244,8 @@ fun AppNavigation(
                 onFolderClick = { navController.navigate(FolderRoute(it)) },
                 onDeviceClick = { navController.navigate(DeviceRoute(it)) },
                 onAddDevice = { navController.navigate(AddDeviceRoute()) },
-                onScanQr = { /* ML Kit scanner launch */ },
+                onScanQr = { navController.navigate(QrScannerRoute) },
+                onShowDeviceCode = { showLocalDeviceCode = true },
                 onSettingsClick = { navController.navigate(SettingsRoute) },
                 onOverviewClick = { navController.navigate(DiagnosticsRoute) },
                 onRefresh = {
@@ -256,10 +270,21 @@ fun AppNavigation(
                     } catch (_: Exception) { }
                 },
                 health = health,
+                diagnostic = diagnostic,
                 localDeviceId = localDeviceId,
                 bandwidth = bandwidth,
                 onInsightsClick = { navController.navigate(InsightsRoute) },
                 onRecentChangesClick = { navController.navigate(RecentChangesRoute) },
+            )
+        }
+        composable<QrScannerRoute> {
+            QrScannerScreen(
+                onDeviceIdScanned = { deviceId ->
+                    navController.navigate(AddDeviceRoute(deviceId)) {
+                        popUpTo(QrScannerRoute) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable<ShareTargetRoute> {
@@ -346,6 +371,43 @@ fun AppNavigation(
                 onRescan = { id ->
                     scope.launch {
                         try { container.client?.rescanFolder(id) } catch (_: Exception) { }
+                    }
+                },
+                onRepairIndex = { id ->
+                    scope.launch {
+                        val client = container.client
+                        if (client == null) {
+                            appState.setDiagnostic("Could not repair folder index: Syncthing service not running")
+                            return@launch
+                        }
+                        try {
+                            client.pauseFolder(id)
+                            delay(500)
+                            client.resetFolderIndex(id)
+                            val ready = withTimeoutOrNull(60_000) {
+                                while (currentCoroutineContext().isActive) {
+                                    try {
+                                        if (client.ping().ping == "pong") return@withTimeoutOrNull true
+                                    } catch (_: Exception) { }
+                                    delay(1_000)
+                                }
+                                false
+                            } == true
+                            if (ready) {
+                                client.resumeFolder(id)
+                                client.rescanFolder(id)
+                                appState.setDiagnostic(null)
+                                appState.pushLog("App: repaired folder index for $id")
+                            } else {
+                                appState.setDiagnostic("Folder index reset started, but Syncthing API did not come back yet")
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                            appState.setDiagnostic("Could not repair folder index: $detail")
+                            appState.pushLog("App: could not repair folder index $id: $detail")
+                        }
                     }
                 },
                 onRemove = { id ->
@@ -504,6 +566,35 @@ fun AppNavigation(
                         try { container.client?.resumeDevice(id) } catch (_: Exception) { }
                     }
                 },
+                onShareExistingFolders = { deviceId ->
+                    scope.launch {
+                        val folderRepo = container.folderRepository
+                        if (folderRepo == null) {
+                            appState.setDiagnostic("Could not share folders: Syncthing service not running")
+                            appState.pushLog("App: could not share folders with $deviceId: service not running")
+                            return@launch
+                        }
+                        try {
+                            folders.forEach { folder ->
+                                if (folder.devices.none { it.deviceID == deviceId }) {
+                                    folderRepo.setFolderDevices(
+                                        folderId = folder.id,
+                                        devices = folder.devices + FolderDevice(deviceID = deviceId),
+                                    )
+                                }
+                            }
+                            appState.setFolders(folderRepo.folders())
+                            appState.setDiagnostic(null)
+                            appState.pushLog("App: existing folders shared with $deviceId")
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                            appState.setDiagnostic("Could not share folders with device: $detail")
+                            appState.pushLog("App: could not share folders with $deviceId: $detail")
+                        }
+                    }
+                },
                 onRemove = { id ->
                     scope.launch {
                         try { container.client?.deleteDevice(id) } catch (_: Exception) { return@launch }
@@ -517,25 +608,50 @@ fun AppNavigation(
             val route = backStackEntry.toRoute<AddDeviceRoute>()
             AddDeviceScreen(
                 initialDeviceId = route.prefillId,
-                onAdd = { deviceId, name ->
+                onAdd = { deviceId, name, shareExistingFolders ->
                     val repo = container.deviceRepository
                         ?: return@AddDeviceScreen Result.failure(
                             Exception("Syncthing service not running")
                         )
-                    try {
-                        repo.addDevice(
-                            DeviceDto(
-                                deviceID = deviceId,
-                                name = name,
-                                addresses = listOf("dynamic"),
-                            )
+                    val folderRepo = container.folderRepository
+                        ?: return@AddDeviceScreen Result.failure(
+                            Exception("Syncthing service not running")
                         )
+                    try {
+                        if (devices.none { it.deviceID == deviceId }) {
+                            repo.addDevice(
+                                DeviceDto(
+                                    deviceID = deviceId,
+                                    name = name,
+                                    addresses = listOf("dynamic"),
+                                )
+                            )
+                        }
+                        if (shareExistingFolders) {
+                            folders.forEach { folder ->
+                                if (folder.devices.none { it.deviceID == deviceId }) {
+                                    folderRepo.setFolderDevices(
+                                        folderId = folder.id,
+                                        devices = folder.devices + FolderDevice(deviceID = deviceId),
+                                    )
+                                }
+                            }
+                        }
+                        appState.setFolders(folderRepo.folders())
+                        appState.setDevices(repo.devices())
+                        appState.setDiagnostic(null)
+                        appState.pushLog("App: device added and existing folders shared with $deviceId")
                         Result.success(Unit)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
+                        val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                        appState.setDiagnostic("Could not add or share device: $detail")
+                        appState.pushLog("App: could not add or share device $deviceId: $detail")
                         Result.failure(e)
                     }
                 },
-                onScanQr = { /* ML Kit scanner */ },
+                onScanQr = { navController.navigate(QrScannerRoute) },
                 onBack = { navController.popBackStack() },
             )
         }

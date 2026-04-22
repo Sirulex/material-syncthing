@@ -1,6 +1,7 @@
 package dev.lostf1sh.syncthing.ui.qr
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -36,8 +38,12 @@ fun ShowQrDialog(
     // Generate the QR bitmap off the main thread — at size=512 the encode +
     // pixel fill is ~20-40ms and used to jank the sheet expansion animation.
     val qrBitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, deviceId) {
-        value = withContext(Dispatchers.Default) {
-            QrCodeGenerator.generate(deviceId).asImageBitmap()
+        value = if (deviceId.isBlank()) {
+            null
+        } else {
+            withContext(Dispatchers.Default) {
+                QrCodeGenerator.generate(deviceId).asImageBitmap()
+            }
         }
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -59,23 +65,38 @@ fun ShowQrDialog(
             )
             Spacer(Modifier.height(16.dp))
             val bmp = qrBitmap
-            if (bmp != null) {
-                Image(
-                    bitmap = bmp,
-                    contentDescription = "QR code for device ID",
-                    modifier = Modifier.size(240.dp),
-                )
-            } else {
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier.size(240.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    androidx.compose.material3.CircularProgressIndicator()
+            when {
+                bmp != null -> {
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = "QR code for device ID",
+                        modifier = Modifier.size(240.dp),
+                    )
+                }
+                deviceId.isBlank() -> {
+                    Box(
+                        modifier = Modifier.size(240.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "Device code is loading. Start Syncthing and try again.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                else -> {
+                    Box(
+                        modifier = Modifier.size(240.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                text = deviceId,
+                text = deviceId.ifBlank { "No device ID available yet" },
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),

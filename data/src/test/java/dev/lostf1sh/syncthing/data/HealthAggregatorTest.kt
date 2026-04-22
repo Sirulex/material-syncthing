@@ -1,6 +1,7 @@
 package dev.lostf1sh.syncthing.data
 
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.api.dto.FolderCompletionInfo
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.data.model.SyncHealth
 import dev.lostf1sh.syncthing.data.model.SyncIssue
@@ -93,6 +94,27 @@ class HealthAggregatorTest {
             connectedDevices = 1,
         )
         assertThat(health.overall).isEqualTo(SyncHealth.Status.SCANNING)
+    }
+
+    @Test
+    fun `remote incomplete folder sets status to syncing`() {
+        val folder = Folder(id = "f1")
+        val health = HealthAggregator.aggregate(
+            folders = listOf(folder),
+            folderStates = mapOf("f1" to "idle"),
+            folderStatuses = mapOf("f1" to FolderStatus(state = "idle")),
+            folderCompletions = mapOf(
+                "f1:device-a" to FolderCompletionInfo(
+                    completion = 0.1,
+                    needBytes = 14_000_000_000,
+                    needItems = 712,
+                )
+            ),
+            deviceCount = 2,
+            connectedDevices = 1,
+        )
+        assertThat(health.overall).isEqualTo(SyncHealth.Status.SYNCING)
+        assertThat(health.syncingFolders).isEqualTo(1)
     }
 
     @Test

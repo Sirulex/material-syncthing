@@ -14,6 +14,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonPrimitive
+import java.net.ConnectException
 
 /**
  * Long-polls Syncthing /rest/events and emits parsed [SyncthingEvent]s.
@@ -54,10 +55,21 @@ class EventStream(private val client: SyncthingClient) {
                 delay(BACKOFF_MS)
             } catch (e: Exception) {
                 currentCoroutineContext().ensureActive()
-                Log.d(TAG, "Event poll error: ${e.message}")
+                if (!e.isTransientConnectionFailure()) {
+                    Log.d(TAG, "Event poll error: ${e.message}")
+                }
                 delay(BACKOFF_MS)
             }
         }
+    }
+
+    private fun Throwable.isTransientConnectionFailure(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            if (current is ConnectException) return true
+            current = current.cause
+        }
+        return message?.contains("Failed to connect", ignoreCase = true) == true
     }
 
     private fun parse(raw: Event): SyncthingEvent {

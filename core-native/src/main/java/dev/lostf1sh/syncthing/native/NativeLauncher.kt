@@ -72,6 +72,7 @@ class NativeLauncher(
         val command = listOf(
             binaryPath.absolutePath,
             "serve",
+            "--home=${configDir.absolutePath}",
             "--no-browser",
             "--no-restart",
         )
@@ -200,20 +201,44 @@ class NativeLauncher(
                 redirectErrorStream(true)
             }
             val proc = pb.start()
+            val output = StringBuilder()
+            val outputLock = Any()
+            val readerThread = Thread({
+                try {
+                    proc.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
+                        lines.forEach { line ->
+                            synchronized(outputLock) {
+                                if (output.length < 16_384) {
+                                    output.appendLine(line)
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Process was killed or stream closed.
+                }
+            }, "$label-output").apply {
+                isDaemon = true
+                start()
+            }
             try {
-                val output = proc.inputStream.bufferedReader(Charsets.UTF_8).readText()
                 if (!proc.waitFor(ONESHOT_TIMEOUT_SEC, TimeUnit.SECONDS)) {
+                    proc.destroyForcibly()
+                    readerThread.join(2_000)
                     error("$label timed out after ${ONESHOT_TIMEOUT_SEC}s")
                 }
+                readerThread.join(2_000)
                 val exitCode = proc.exitValue()
+                val captured = synchronized(outputLock) { output.toString() }
                 if (exitCode != 0) {
-                    error("$label failed (exit $exitCode): $output")
+                    error("$label failed (exit $exitCode): $captured")
                 }
-                output
+                captured
             } finally {
                 if (proc.isAlive) {
                     proc.destroyForcibly()
                 }
+                readerThread.interrupt()
             }
         }
 

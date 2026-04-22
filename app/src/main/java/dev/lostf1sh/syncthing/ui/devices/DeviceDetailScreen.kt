@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ButtonDefaults
@@ -61,6 +62,7 @@ fun DeviceDetailScreen(
     onBack: () -> Unit,
     onPause: ((String) -> Unit)? = null,
     onResume: ((String) -> Unit)? = null,
+    onShareExistingFolders: ((String) -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
     localDeviceId: String? = null,
     modifier: Modifier = Modifier,
@@ -151,6 +153,23 @@ fun DeviceDetailScreen(
             }
 
             Spacer(Modifier.height(16.dp))
+
+            if (onShareExistingFolders != null && !isLocal) {
+                FilledTonalButton(
+                    onClick = { onShareExistingFolders(device.deviceID) },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        Icons.Default.Folder,
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Share folders")
+                }
+                Spacer(Modifier.height(16.dp))
+            }
 
             ListItem(
                 headlineContent = { Text("Device ID") },

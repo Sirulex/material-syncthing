@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeExtendedFloatingActionButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.OutlinedTextField
@@ -46,7 +48,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AddDeviceScreen(
     initialDeviceId: String = "",
-    onAdd: suspend (deviceId: String, name: String) -> Result<Unit>,
+    onAdd: suspend (deviceId: String, name: String, shareExistingFolders: Boolean) -> Result<Unit>,
     onScanQr: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -57,6 +59,7 @@ fun AddDeviceScreen(
 
     var deviceId by remember { mutableStateOf(initialDeviceId) }
     var deviceName by remember { mutableStateOf("") }
+    var shareExistingFolders by remember { mutableStateOf(true) }
     var isLoading by remember { mutableStateOf(false) }
     val isValid = DeviceIdValidator.isValid(deviceId)
 
@@ -86,6 +89,7 @@ fun AddDeviceScreen(
                             val result = onAdd(
                                 deviceId.trim().uppercase(),
                                 deviceName.trim(),
+                                shareExistingFolders,
                             )
                             isLoading = false
                             result.fold(
@@ -186,8 +190,24 @@ fun AddDeviceScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            ListItem(
+                headlineContent = { Text("Share existing folders") },
+                supportingContent = {
+                    Text("Add this device to current folder configs so data can sync.")
+                },
+                trailingContent = {
+                    Checkbox(
+                        checked = shareExistingFolders,
+                        onCheckedChange = { shareExistingFolders = it },
+                        enabled = !isLoading,
+                    )
+                },
+            )
+
+            Spacer(Modifier.height(8.dp))
+
             Text(
-                text = "The remote device must also add this device for syncing to begin.",
+                text = "The remote device must also add this device, and each folder must be shared on both sides.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

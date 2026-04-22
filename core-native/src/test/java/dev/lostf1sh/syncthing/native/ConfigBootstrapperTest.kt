@@ -81,6 +81,20 @@ class ConfigBootstrapperTest {
     }
 
     @Test
+    fun `patchConfig enables plaintext localhost GUI`() {
+        val config = MINIMAL_CONFIG
+            .replace("""<gui enabled="true" tls="false">""", """<gui enabled="false" tls="true">""")
+            .replace("<address>127.0.0.1:8384</address>", "<address>0.0.0.0:9999</address>")
+        File(configDir, "config.xml").writeText(config)
+
+        bootstrapper.patchConfig(null)
+
+        val patched = File(configDir, "config.xml").readText()
+        assertThat(patched).contains("""<gui enabled="true" tls="false">""")
+        assertThat(patched).contains("<address>127.0.0.1:8384</address>")
+    }
+
+    @Test
     fun `patchConfig is idempotent`() {
         File(configDir, "config.xml").writeText(MINIMAL_CONFIG)
         bootstrapper.patchConfig(null)

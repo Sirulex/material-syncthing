@@ -1,6 +1,7 @@
 package dev.lostf1sh.syncthing.data
 
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.api.dto.FolderCompletionInfo
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.data.model.SyncHealth
 import dev.lostf1sh.syncthing.data.model.SyncIssue
@@ -14,6 +15,7 @@ object HealthAggregator {
         folders: List<Folder>,
         folderStates: Map<String, String>,
         folderStatuses: Map<String, FolderStatus>,
+        folderCompletions: Map<String, FolderCompletionInfo> = emptyMap(),
         deviceCount: Int,
         connectedDevices: Int,
     ): SyncHealth {
@@ -26,6 +28,11 @@ object HealthAggregator {
             val state = folderStates[folder.id] ?: "unknown"
             val status = folderStatuses[folder.id]
 
+            val remoteSyncing = folderCompletions
+                .filterKeys { it.startsWith("${folder.id}:") }
+                .values
+                .any { it.isIncomplete() }
+
             when {
                 folder.paused -> paused++
                 state == "error" -> {
@@ -37,7 +44,7 @@ object HealthAggregator {
                         message = "Folder error: ${folder.label.ifBlank { folder.id }}",
                     )
                 }
-                state == "syncing" -> syncing++
+                state == "syncing" || remoteSyncing -> syncing++
             }
 
             if (status != null && status.pullErrors > 0) {
@@ -69,4 +76,10 @@ object HealthAggregator {
             issues = issues,
         )
     }
+
+    private fun FolderCompletionInfo.isIncomplete(): Boolean =
+        needBytes > 0 ||
+            needItems > 0 ||
+            needDeletes > 0 ||
+            completion < 99.999
 }

@@ -12,21 +12,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -40,10 +44,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
+import dev.lostf1sh.syncthing.ui.qr.ShowQrDialog
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -57,19 +64,6 @@ fun DevicesScreen(
     localDeviceId: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (devices.isEmpty()) {
-        Box(modifier = modifier.fillMaxSize()) {
-            EmptyState(
-                title = "No devices",
-                description = "Add a remote device to start syncing.",
-                actionLabel = "Add Device",
-                onAction = onAddDevice,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        return
-    }
-
     val listState = rememberLazyListState()
     val fabVisible by remember {
         derivedStateOf { listState.firstVisibleItemIndex == 0 }
@@ -77,6 +71,15 @@ fun DevicesScreen(
     var fabExpanded by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
+    var showingLocalQr by rememberSaveable { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+
+    if (showingLocalQr && !localDeviceId.isNullOrBlank()) {
+        ShowQrDialog(
+            deviceId = localDeviceId,
+            onDismiss = { showingLocalQr = false },
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         PullToRefreshBox(
@@ -96,6 +99,30 @@ fun DevicesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
+                if (!localDeviceId.isNullOrBlank()) {
+                    item {
+                        LocalDeviceIdCard(
+                            deviceId = localDeviceId,
+                            onCopy = {
+                                clipboard.setText(AnnotatedString(localDeviceId))
+                            },
+                            onShowQr = { showingLocalQr = true },
+                        )
+                    }
+                }
+                if (devices.isEmpty()) {
+                    item {
+                        EmptyState(
+                            title = "No remote devices",
+                            description = "Add your phone's device ID in the Syncthing Web GUI on your PC, then add the PC here.",
+                            actionLabel = "Add Device",
+                            onAction = onAddDevice,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                        )
+                    }
+                }
                 items(devices, key = { it.deviceID }) { device ->
                     DeviceCard(
                         device = device,
@@ -142,6 +169,84 @@ fun DevicesScreen(
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("Enter Device ID") },
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun LocalDeviceIdCard(
+    deviceId: String,
+    onCopy: () -> Unit,
+    onShowQr: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.QrCode,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "This device code",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        text = "Use this in the Syncthing Web GUI on your PC.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+
+            Text(
+                text = deviceId,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(
+                    onClick = onCopy,
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Copy ID")
+                }
+                OutlinedButton(
+                    onClick = onShowQr,
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCode,
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("QR Code")
+                }
+            }
         }
     }
 }

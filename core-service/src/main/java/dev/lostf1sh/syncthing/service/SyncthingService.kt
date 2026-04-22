@@ -11,9 +11,11 @@ import android.util.Log
 import androidx.core.app.ServiceCompat
 import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SyncConstraints
+import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.native.ConfigBootstrapper
 import dev.lostf1sh.syncthing.native.NativeLauncher
 import dev.lostf1sh.syncthing.native.RunState
+import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,14 +26,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 class SyncthingService : Service() {
 
     companion object {
         private const val TAG = "SyncthingService"
+        private const val API_READY_TIMEOUT_MS = 60_000L
         const val ACTION_START = "dev.lostf1sh.syncthing.action.START"
         const val ACTION_STOP = "dev.lostf1sh.syncthing.action.STOP"
         const val ACTION_PAUSE = "dev.lostf1sh.syncthing.action.PAUSE"
@@ -45,6 +50,7 @@ class SyncthingService : Service() {
     private var syncthingJob: Job? = null
     private var constraintJob: Job? = null
     @Volatile private var pausedByConstraint = false
+    @Volatile private var requestedPauseReason: String? = null
     private lateinit var launcher: NativeLauncher
     private lateinit var bootstrapper: ConfigBootstrapper
     private lateinit var notifications: NotificationController
@@ -90,6 +96,7 @@ class SyncthingService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 pausedByConstraint = false
+                requestedPauseReason = null
                 stopSyncthing()
             }
             ACTION_PAUSE -> {
@@ -99,6 +106,7 @@ class SyncthingService : Service() {
             ACTION_RESCAN_ALL -> rescanAllFolders()
             else -> {
                 pausedByConstraint = false
+                requestedPauseReason = null
                 startSyncthing()
             }
         }
@@ -186,18 +194,54 @@ class SyncthingService : Service() {
                 if (!bootstrapper.configExists) {
                     Log.i(TAG, "First run — generating config")
                     launcher.generateConfig()
-                    val deviceId = launcher.getDeviceId()
-                    bootstrapper.patchConfig(deviceId)
                 }
+
+                // Re-patch every start. Users can carry old/bad config forward,
+                // and without this the UI can point at localhost:8384 while the
+                // daemon GUI is disabled, TLS-only, or bound elsewhere.
+                val deviceId = try {
+                    launcher.getDeviceId()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not read device ID before start; patching config without local name", e)
+                    null
+                }
+                bootstrapper.patchConfig(deviceId)
 
                 val apiKey = bootstrapper.readApiKey()
                 val port = bootstrapper.readGuiPort()
-                _state.value = RunState.Running(apiKey, port)
-                updateNotification(RunState.Running(apiKey, port))
 
-                // Blocks until process exits
-                val exitCode = launcher.start()
+                val processJob = async { launcher.start() }
+                if (!waitForApiReady(apiKey, port, processJob)) {
+                    val crash = RunState.Crashed(
+                        -1,
+                        "Syncthing API did not become reachable on 127.0.0.1:$port",
+                    )
+                    _state.value = crash
+                    notifications.showCrashedNotification(crash.exitCode, crash.reason)
+                    if (!processJob.isCompleted && launcher.isRunning) {
+                        launcher.stop()
+                    }
+                    if (processJob.isCompleted) {
+                        Log.w(TAG, "Syncthing exited before API became ready with code ${processJob.await()}")
+                    }
+                    stopSelf()
+                    return@launch
+                }
+
+                val running = RunState.Running(apiKey, port)
+                _state.value = running
+                updateNotification(running)
+
+                val exitCode = processJob.await()
                 val newState = launcher.interpretExitCode(exitCode)
+                val pauseReason = requestedPauseReason
+                if (pauseReason != null && newState is RunState.Stopped) {
+                    requestedPauseReason = null
+                    val paused = RunState.Paused(pauseReason)
+                    _state.value = paused
+                    updateNotification(paused)
+                    return@launch
+                }
                 _state.value = newState
 
                 when (newState) {
@@ -225,6 +269,32 @@ class SyncthingService : Service() {
         }
     }
 
+    private suspend fun waitForApiReady(apiKey: String, port: Int, processJob: Job): Boolean {
+        val ready = withTimeoutOrNull(API_READY_TIMEOUT_MS) {
+            val client = SyncthingClient(
+                baseUrl = "http://127.0.0.1:$port",
+                apiKey = apiKey,
+            )
+            try {
+                while (!processJob.isCompleted) {
+                    try {
+                        if (client.ping().ping == "pong") {
+                            Log.i(TAG, "Syncthing API ready on 127.0.0.1:$port")
+                            return@withTimeoutOrNull true
+                        }
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Waiting for Syncthing API on 127.0.0.1:$port: ${e.message}")
+                    }
+                    delay(500)
+                }
+                false
+            } finally {
+                client.close()
+            }
+        }
+        return ready == true
+    }
+
     private fun stopSyncthing() {
         serviceScope.launch {
             if (launcher.isRunning) {
@@ -239,6 +309,7 @@ class SyncthingService : Service() {
 
     private fun pauseSyncthing(reason: String) {
         serviceScope.launch {
+            requestedPauseReason = reason
             if (launcher.isRunning) {
                 launcher.stop()
             }

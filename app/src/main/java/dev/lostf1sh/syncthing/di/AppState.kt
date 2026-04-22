@@ -86,6 +86,9 @@ class AppState {
     private val _logs = MutableStateFlow<List<String>>(emptyList())
     val logs: StateFlow<List<String>> = _logs.asStateFlow()
 
+    private val _diagnostic = MutableStateFlow<String?>(null)
+    val diagnostic: StateFlow<String?> = _diagnostic.asStateFlow()
+
     fun setFolders(list: List<Folder>) { _folders.value = list }
     fun setDevices(list: List<Device>) { _devices.value = list }
     fun setFolderStatuses(map: Map<String, FolderStatus>) { _folderStatuses.value = map }
@@ -106,6 +109,7 @@ class AppState {
     fun setFolderStats(map: Map<String, FolderStats>) { _folderStats.value = map }
     fun setDeviceStats(map: Map<String, DeviceStats>) { _deviceStats.value = map }
     fun setSystemStatus(s: SystemStatus?) { _systemStatus.value = s }
+    fun setDiagnostic(message: String?) { _diagnostic.value = message }
     fun pushLog(line: String) { _logs.update { (it + line).takeLast(500) } }
 
     fun pushRecentChange(item: RecentChangeItem) {
@@ -148,5 +152,6 @@ class AppState {
         _recentChanges.value = emptyList()
         _systemStatus.value = null
         _logs.value = emptyList()
+        _diagnostic.value = null
     }
 }

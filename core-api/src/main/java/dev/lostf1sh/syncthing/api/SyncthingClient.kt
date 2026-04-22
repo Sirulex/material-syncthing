@@ -19,6 +19,7 @@ import io.ktor.client.plugins.timeout
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 class SyncthingClient(
@@ -65,6 +66,12 @@ class SyncthingClient(
         http.post("/rest/system/restart")
     }
 
+    suspend fun resetFolderIndex(folderId: String) {
+        http.post("/rest/system/reset") {
+            parameter("folder", folderId)
+        }
+    }
+
     suspend fun shutdown() {
         http.post("/rest/system/shutdown")
     }
@@ -88,6 +95,13 @@ class SyncthingClient(
         http.put("/rest/config/folders/${folder.id}") {
             contentType(ContentType.Application.Json)
             setBody(folder)
+        }
+    }
+
+    suspend fun setFolderDevices(folderId: String, devices: List<FolderDevice>) {
+        http.patch("/rest/config/folders/$folderId") {
+            contentType(ContentType.Application.Json)
+            setBody(FolderDevicesPatch(devices))
         }
     }
 
@@ -234,6 +248,7 @@ class SyncthingClient(
             parameter("timeout", timeout)
             timeout {
                 requestTimeoutMillis = (timeout.toLong() + 10) * 1000
+                socketTimeoutMillis = (timeout.toLong() + 10) * 1000
             }
         }.body()
 
@@ -241,3 +256,8 @@ class SyncthingClient(
         http.close()
     }
 }
+
+@Serializable
+private data class FolderDevicesPatch(
+    val devices: List<FolderDevice>,
+)

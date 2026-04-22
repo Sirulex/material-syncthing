@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material3.AlertDialog
@@ -63,6 +64,7 @@ fun FolderDetailScreen(
     onPause: ((String) -> Unit)? = null,
     onResume: ((String) -> Unit)? = null,
     onRescan: ((String) -> Unit)? = null,
+    onRepairIndex: ((String) -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
     onBrowse: ((String) -> Unit)? = null,
     wifiOnly: Boolean = false,
@@ -72,6 +74,7 @@ fun FolderDetailScreen(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showRepairDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -175,6 +178,19 @@ fun FolderDetailScreen(
                     Icon(Icons.Default.FolderOpen, null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text("Browse files")
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+
+            if (onRepairIndex != null) {
+                OutlinedButton(
+                    onClick = { showRepairDialog = true },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Build, null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Repair index")
                 }
                 Spacer(Modifier.height(16.dp))
             }
@@ -310,6 +326,33 @@ fun FolderDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showRepairDialog && folder != null) {
+        AlertDialog(
+            onDismissRequest = { showRepairDialog = false },
+            title = { Text("Repair folder index?") },
+            text = {
+                Column {
+                    Text("This pauses the folder, resets Syncthing's local index for it, then rescans.")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Files are not deleted. Use this when devices show stuck remote completion even though the files already match.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRepairDialog = false
+                    onRepairIndex?.invoke(folder.id)
+                }) { Text("Repair") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRepairDialog = false }) { Text("Cancel") }
             },
         )
     }

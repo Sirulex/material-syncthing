@@ -21,6 +21,9 @@ object SettingsRoute
 data class AddDeviceRoute(val prefillId: String = "")
 
 @Serializable
+object QrScannerRoute
+
+@Serializable
 object OnboardingRoute
 
 @Serializable

@@ -2,7 +2,10 @@
 // Rewritten with NetworkCallback + Flow instead of BroadcastReceiver polling.
 package dev.lostf1sh.syncthing.data
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -10,11 +13,15 @@ import android.os.BatteryManager
 import android.os.PowerManager
 import android.util.Log
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
+import java.util.Calendar
 
 /**
  * Monitors device state (network, charging, battery saver) and
@@ -47,10 +54,24 @@ class SyncConstraints(private val context: Context) {
             settings.schedulerEnabled,
             settings.schedulerStartHour,
             settings.schedulerEndHour,
-        ) { networkState, wifiOnly, allowMetered, chargingOnly, respectBatterySaver,
-            schedulerEnabled, schedulerStartHour, schedulerEndHour ->
-            decide(networkState, wifiOnly, allowMetered, chargingOnly, respectBatterySaver,
-                schedulerEnabled, schedulerStartHour, schedulerEndHour)
+            observeCharging(),
+            observeBatterySaver(),
+            observeCurrentHour(),
+        ) { args: Array<Any?> ->
+            @Suppress("UNCHECKED_CAST")
+            decide(
+                network = args[0] as NetworkState,
+                wifiOnly = args[1] as Boolean,
+                allowMetered = args[2] as Boolean,
+                chargingOnly = args[3] as Boolean,
+                respectBatterySaver = args[4] as Boolean,
+                schedulerEnabled = args[5] as Boolean,
+                schedulerStartHour = args[6] as Int,
+                schedulerEndHour = args[7] as Int,
+                charging = args[8] as Boolean,
+                batterySaver = args[9] as Boolean,
+                currentHour = args[10] as Int,
+            )
         }.distinctUntilChanged()
     }
 
@@ -63,24 +84,26 @@ class SyncConstraints(private val context: Context) {
         schedulerEnabled: Boolean = false,
         schedulerStartHour: Int = 23,
         schedulerEndHour: Int = 6,
+        charging: Boolean,
+        batterySaver: Boolean,
+        currentHour: Int,
     ): ConstraintState {
         // Battery saver check
-        if (respectBatterySaver && isBatterySaverOn()) {
+        if (respectBatterySaver && batterySaver) {
             return ConstraintState.ShouldPause("Battery saver active")
         }
 
         // Charging check
-        if (chargingOnly && !isCharging()) {
+        if (chargingOnly && !charging) {
             return ConstraintState.ShouldPause("Not charging")
         }
 
         // Scheduler check
         if (schedulerEnabled) {
-            val now = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             val inRange = if (schedulerStartHour < schedulerEndHour) {
-                now in schedulerStartHour until schedulerEndHour
+                currentHour in schedulerStartHour until schedulerEndHour
             } else {
-                now >= schedulerStartHour || now < schedulerEndHour
+                currentHour >= schedulerStartHour || currentHour < schedulerEndHour
             }
             if (!inRange) {
                 return ConstraintState.ShouldPause("Outside scheduled hours (${schedulerStartHour}:00 - ${schedulerEndHour}:00)")
@@ -152,6 +175,53 @@ class SyncConstraints(private val context: Context) {
 
         awaitClose { cm.unregisterNetworkCallback(callback) }
     }
+
+    private fun observeCharging(): Flow<Boolean> = callbackFlow {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                trySend(isCharging())
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_BATTERY_CHANGED)
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+        }
+        context.registerReceiver(receiver, filter)
+        trySend(isCharging())
+        awaitClose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
+        }
+    }.distinctUntilChanged()
+
+    private fun observeBatterySaver(): Flow<Boolean> = callbackFlow {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                trySend(isBatterySaverOn())
+            }
+        }
+        context.registerReceiver(
+            receiver,
+            IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+        )
+        trySend(isBatterySaverOn())
+        awaitClose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
+        }
+    }.distinctUntilChanged()
+
+    private fun observeCurrentHour(): Flow<Int> = flow {
+        while (currentCoroutineContext().isActive) {
+            emit(Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
+            delay(60_000)
+        }
+    }.distinctUntilChanged()
 
     private fun isCharging(): Boolean {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager

@@ -2,6 +2,7 @@ package dev.lostf1sh.syncthing.data
 
 import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.dto.Folder
+import dev.lostf1sh.syncthing.api.dto.FolderDevice
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -19,6 +20,9 @@ class FolderRepository(private val client: SyncthingClient) {
     suspend fun addFolder(folder: Folder) = client.addFolder(folder)
 
     suspend fun updateFolder(folder: Folder) = client.updateFolder(folder)
+
+    suspend fun setFolderDevices(folderId: String, devices: List<FolderDevice>) =
+        client.setFolderDevices(folderId, devices)
 
     fun observeFolders(intervalMs: Long = 3_000): Flow<List<Folder>> = flow {
         while (currentCoroutineContext().isActive) {

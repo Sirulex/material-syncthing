@@ -68,7 +68,11 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.material3)
     implementation(libs.material.icons.extended)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
     implementation(libs.zxing.core)
+    implementation(libs.mlkit.barcode)
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
 
