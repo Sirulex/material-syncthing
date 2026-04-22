@@ -65,3 +65,6 @@ data class FolderBrowserRoute(val folderId: String, val prefix: String = "")
 
 @Serializable
 data class IgnoreEditorRoute(val folderId: String)
+
+@Serializable
+data class EditFolderRoute(val folderId: String)

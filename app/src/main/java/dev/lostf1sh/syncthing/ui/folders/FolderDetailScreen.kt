@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -69,6 +70,7 @@ fun FolderDetailScreen(
     onResume: ((String) -> Unit)? = null,
     onRescan: ((String) -> Unit)? = null,
     onRepairIndex: ((String) -> Unit)? = null,
+    onEdit: ((String) -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
     onBrowse: ((String) -> Unit)? = null,
     wifiOnly: Boolean = false,
@@ -243,6 +245,11 @@ fun FolderDetailScreen(
 
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (onEdit != null) {
+                    FilledTonalIconButton(onClick = { onEdit(folder.id) }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit")
+                    }
+                }
                 FilledTonalIconButton(onClick = {
                     onRescan?.invoke(folder.id)
                 }) {

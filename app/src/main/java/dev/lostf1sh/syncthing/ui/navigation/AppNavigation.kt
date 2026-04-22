@@ -35,6 +35,7 @@ import dev.lostf1sh.syncthing.ui.folders.AddFolderScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderBrowserScreen
 import dev.lostf1sh.syncthing.ui.folders.FolderDetailScreen
 import dev.lostf1sh.syncthing.ui.folders.IgnoreEditorScreen
+import dev.lostf1sh.syncthing.ui.folders.EditFolderScreen
 import dev.lostf1sh.syncthing.ui.folders.PendingFolderUi
 import dev.lostf1sh.syncthing.ui.folders.appendIgnorePattern
 import dev.lostf1sh.syncthing.api.dto.BrowseEntry
@@ -414,6 +415,7 @@ fun AppNavigation(
                         }
                     }
                 },
+                onEdit = { id -> navController.navigate(EditFolderRoute(id)) },
                 onRemove = { id ->
                     scope.launch {
                         try { container.client?.deleteFolder(id) } catch (_: Exception) { return@launch }
@@ -530,6 +532,55 @@ fun AppNavigation(
                         navController.popBackStack()
                     }
                 },
+            )
+        }
+        composable<EditFolderRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<EditFolderRoute>()
+            val folder = folders.find { it.id == route.folderId }
+            if (folder == null) {
+                LaunchedEffect(route.folderId) { navController.popBackStack() }
+                return@composable
+            }
+            EditFolderScreen(
+                folderId = folder.id,
+                initialLabel = folder.label,
+                initialPath = folder.path,
+                initialType = folder.type,
+                devices = devices,
+                localDeviceId = localDeviceId,
+                initialSharedDeviceIds = folder.devices.map { it.deviceID }.toSet(),
+                onSave = { label, path, type, sharedDeviceIds ->
+                    val folderRepo = container.folderRepository
+                        ?: return@EditFolderScreen Result.failure(
+                            Exception("Syncthing service not running")
+                        )
+                    val localId = localDeviceId.orEmpty()
+                    if (localId.isBlank()) {
+                        return@EditFolderScreen Result.failure(Exception("Local device ID unavailable"))
+                    }
+                    val deviceIds = (sharedDeviceIds + localId).toList()
+                    try {
+                        val updated = folder.copy(
+                            label = label,
+                            path = path,
+                            type = type,
+                            devices = deviceIds.map { FolderDevice(deviceID = it) },
+                        )
+                        folderRepo.updateFolder(updated)
+                        appState.setFolders(folderRepo.folders())
+                        appState.setDiagnostic(null)
+                        appState.pushLog("App: folder updated ${folder.id}")
+                        Result.success(Unit)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                        appState.setDiagnostic("Could not update folder: $detail")
+                        appState.pushLog("App: could not update folder ${folder.id}: $detail")
+                        Result.failure(e)
+                    }
+                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable<DeviceRoute>(
