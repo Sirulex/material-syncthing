@@ -34,8 +34,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.Folder
 import java.io.File
 import java.io.FileOutputStream
@@ -57,9 +59,9 @@ fun ShareTargetScreen(
             MediumFlexibleTopAppBar(
                 title = {
                     Column {
-                        Text("Share to Syncthing")
+                        Text(stringResource(R.string.share_to_syncthing))
                         Text(
-                            "$fileCount file(s) ready to copy",
+                            stringResource(R.string.share_files_ready, fileCount),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -67,7 +69,7 @@ fun ShareTargetScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack, shapes = IconButtonDefaults.shapes()) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 scrollBehavior = scrollBehavior,

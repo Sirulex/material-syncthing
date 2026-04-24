@@ -51,8 +51,12 @@ import dev.lostf1sh.syncthing.ui.home.InsightsScreen
 import dev.lostf1sh.syncthing.ui.home.RecentChangesScreen
 import dev.lostf1sh.syncthing.ui.share.ShareTargetScreen
 import dev.lostf1sh.syncthing.ui.share.copyUrisToFolder
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
 import dev.lostf1sh.syncthing.ui.qr.ShowQrDialog
@@ -61,11 +65,6 @@ import dev.lostf1sh.syncthing.ui.settings.BatteryWizardScreen
 import dev.lostf1sh.syncthing.ui.settings.DiagnosticsScreen
 import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 
@@ -166,25 +165,30 @@ fun AppNavigation(
                 pending = pf,
                 onAccept = { path ->
                     scope.launch {
-                        try {
-                            container.client?.addFolder(
-                                Folder(
-                                    id = pf.folderId,
-                                    label = pf.label,
-                                    path = path,
-                                    devices = listOf(FolderDevice(deviceID = pf.offeredByDevice)),
-                                )
-                            )
-                            container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
-                        } catch (_: Exception) { }
+                        val result = acceptPendingFolder(
+                            client = container.client,
+                            folder = Folder(
+                                id = pf.folderId,
+                                label = pf.label,
+                                path = path,
+                                devices = listOf(FolderDevice(deviceID = pf.offeredByDevice)),
+                            ),
+                            offeredByDeviceId = pf.offeredByDevice,
+                        )
+                        if (result.isFailure) {
+                            val detail = result.exceptionOrNull()?.message ?: "Unknown error"
+                            appState.setDiagnostic("Could not accept folder: $detail")
+                        }
                     }
                     dismissedOffers = dismissedOffers + pf.folderId
                 },
                 onDismiss = {
                     scope.launch {
-                        try {
-                            container.client?.dismissPendingFolder(pf.folderId, pf.offeredByDevice)
-                        } catch (_: Exception) { }
+                        dismissPendingFolder(
+                            client = container.client,
+                            folderId = pf.folderId,
+                            offeredByDeviceId = pf.offeredByDevice,
+                        )
                     }
                     dismissedOffers = dismissedOffers + pf.folderId
                 },
@@ -256,25 +260,12 @@ fun AppNavigation(
                 onSettingsClick = { navController.navigate(SettingsRoute) },
                 onOverviewClick = { navController.navigate(DiagnosticsRoute) },
                 onRefresh = {
-                    // Suspend inline so the pull-to-refresh spinner stays up
-                    // until these fetches actually land. Wrapping in scope.launch
-                    // would return immediately and flip the spinner off early.
-                    try {
-                        container.folderRepository?.folders()?.let(appState::setFolders)
-                        container.deviceRepository?.devices()?.let(appState::setDevices)
-                        val fMap = mutableMapOf<String, FolderStatus>()
-                        appState.folders.value.forEach { f ->
-                            try {
-                                val s = container.folderRepository?.folderStatus(f.id)
-                                if (s != null) {
-                                    fMap[f.id] = s
-                                    appState.updateFolderState(f.id, s.state)
-                                }
-                            } catch (_: Exception) { }
-                        }
-                        appState.setFolderStatuses(fMap)
-                        container.systemRepository?.connections()?.let(appState::setConnections)
-                    } catch (_: Exception) { }
+                    refreshHomeData(
+                        folderRepo = container.folderRepository,
+                        deviceRepo = container.deviceRepository,
+                        systemRepo = container.systemRepository,
+                        appState = appState,
+                    )
                 },
                 health = health,
                 diagnostic = diagnostic,
@@ -316,8 +307,11 @@ fun AppNavigation(
                             copyUrisToFolder(context, uris, path)
                         }
                         if (copied > 0) {
-                            try { container.client?.rescanSubdir(folderId, "_incoming") }
-                            catch (_: Exception) { }
+                            fireAndForget(
+                                { container.client?.rescanSubdir(folderId, "_incoming") },
+                                appState,
+                                "Could not trigger rescan after share",
+                            )
                         }
                         copying = false
                         incomingShareUris = emptyList()
@@ -367,17 +361,29 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onPause = { id ->
                     scope.launch {
-                        try { container.client?.pauseFolder(id) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.pauseFolder(id) },
+                            appState,
+                            "Could not pause folder",
+                        )
                     }
                 },
                 onResume = { id ->
                     scope.launch {
-                        try { container.client?.resumeFolder(id) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.resumeFolder(id) },
+                            appState,
+                            "Could not resume folder",
+                        )
                     }
                 },
                 onRescan = { id ->
                     scope.launch {
-                        try { container.client?.rescanFolder(id) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.rescanFolder(id) },
+                            appState,
+                            "Could not rescan folder",
+                        )
                     }
                 },
                 onRepairIndex = { id ->
@@ -387,41 +393,20 @@ fun AppNavigation(
                             appState.setDiagnostic("Could not repair folder index: Syncthing service not running")
                             return@launch
                         }
-                        try {
-                            client.pauseFolder(id)
-                            delay(500)
-                            client.resetFolderIndex(id)
-                            val ready = withTimeoutOrNull(60_000) {
-                                while (currentCoroutineContext().isActive) {
-                                    try {
-                                        if (client.ping().ping == "pong") return@withTimeoutOrNull true
-                                    } catch (_: Exception) { }
-                                    delay(1_000)
-                                }
-                                false
-                            } == true
-                            if (ready) {
-                                client.resumeFolder(id)
-                                client.rescanFolder(id)
-                                appState.setDiagnostic(null)
-                                appState.pushLog("App: repaired folder index for $id")
-                            } else {
-                                appState.setDiagnostic("Folder index reset started, but Syncthing API did not come back yet")
-                            }
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
-                            appState.setDiagnostic("Could not repair folder index: $detail")
-                            appState.pushLog("App: could not repair folder index $id: $detail")
-                        }
+                        repairFolderIndex(client, id, appState)
                     }
                 },
                 onEdit = { id -> navController.navigate(EditFolderRoute(id)) },
                 onRemove = { id ->
                     scope.launch {
-                        try { container.client?.deleteFolder(id) } catch (_: Exception) { return@launch }
-                        navController.popBackStack()
+                        fireAndForget(
+                            {
+                                container.client?.deleteFolder(id)
+                                navController.popBackStack()
+                            },
+                            appState,
+                            "Could not remove folder",
+                        )
                     }
                 },
                 onBrowse = { navController.navigate(FolderBrowserRoute(it)) },
@@ -429,10 +414,17 @@ fun AppNavigation(
                 chargingOnly = currentConditions?.chargingOnly ?: false,
                 onConditionsChanged = { wifi, charging ->
                     scope.launch {
-                        val updated = folderConditions.toMutableMap().apply {
-                            put(folderId, FolderCondition(wifi, charging))
+                        try {
+                            val updated = folderConditions.toMutableMap().apply {
+                                put(folderId, FolderCondition(wifi, charging))
+                            }
+                            container.settingsStore.setFolderConditions(serializeFolderConditions(updated))
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                            appState.setDiagnostic("Could not update folder conditions: $detail")
                         }
-                        container.settingsStore.setFolderConditions(serializeFolderConditions(updated))
                     }
                 },
             )
@@ -451,22 +443,9 @@ fun AppNavigation(
 
             suspend fun load() {
                 loading = true
-                try {
-                    entries = container.client?.browseFolder(
-                        folderId = route.folderId,
-                        prefix = route.prefix,
-                        levels = 0,
-                    ) ?: emptyList()
-                } catch (_: Exception) { }
-                try {
-                    val need = container.client?.folderNeed(route.folderId)
-                    val paths = buildSet {
-                        need?.progress?.forEach { add(it.name) }
-                        need?.queued?.forEach { add(it.name) }
-                        need?.rest?.forEach { add(it.name) }
-                    }
-                    pendingPaths = paths
-                } catch (_: Exception) { }
+                val (e, p) = loadFolderBrowser(container.client, route.folderId, route.prefix)
+                entries = e
+                pendingPaths = p
                 loading = false
             }
 
@@ -487,8 +466,11 @@ fun AppNavigation(
                 },
                 onRescan = { sub ->
                     scope.launch {
-                        try { container.client?.rescanSubdir(route.folderId, sub) }
-                        catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.rescanSubdir(route.folderId, sub) },
+                            appState,
+                            "Could not rescan subdirectory",
+                        )
                     }
                 },
                 onCopyPath = { path ->
@@ -497,11 +479,15 @@ fun AppNavigation(
                 },
                 onAddToIgnores = { path ->
                     scope.launch {
-                        try {
-                            val current = container.client?.folderIgnores(route.folderId)
-                            val next = appendIgnorePattern(current?.ignore ?: emptyList(), path)
-                            container.client?.setFolderIgnores(route.folderId, next)
-                        } catch (_: Exception) { }
+                        fireAndForget(
+                            {
+                                val current = container.client?.folderIgnores(route.folderId)
+                                val next = appendIgnorePattern(current?.ignore ?: emptyList(), path)
+                                container.client?.setFolderIgnores(route.folderId, next)
+                            },
+                            appState,
+                            "Could not update ignores",
+                        )
                     }
                 },
                 onEditIgnores = {
@@ -517,9 +503,7 @@ fun AppNavigation(
             LaunchedEffect(route.folderId, serviceState) {
                 if (serviceState !is RunState.Running) return@LaunchedEffect
                 loading = true
-                try {
-                    patterns = container.client?.folderIgnores(route.folderId)?.ignore ?: emptyList()
-                } catch (_: Exception) { }
+                patterns = loadFolderIgnores(container.client, route.folderId)
                 loading = false
             }
             IgnoreEditorScreen(
@@ -529,9 +513,14 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onSave = { list ->
                     scope.launch {
-                        try { container.client?.setFolderIgnores(route.folderId, list) }
-                        catch (_: Exception) { }
-                        navController.popBackStack()
+                        fireAndForget(
+                            {
+                                container.client?.setFolderIgnores(route.folderId, list)
+                                navController.popBackStack()
+                            },
+                            appState,
+                            "Could not save ignores",
+                        )
                     }
                 },
             )
@@ -561,7 +550,7 @@ fun AppNavigation(
                         return@EditFolderScreen Result.failure(Exception("Local device ID unavailable"))
                     }
                     val deviceIds = (sharedDeviceIds + localId).toList()
-                    try {
+                    return@EditFolderScreen try {
                         val updated = folder.copy(
                             label = label,
                             path = path,
@@ -604,7 +593,7 @@ fun AppNavigation(
                         ?: return@EditDeviceScreen Result.failure(
                             Exception("Syncthing service not running")
                         )
-                    try {
+                    return@EditDeviceScreen try {
                         val updated = device.copy(
                             name = name,
                             addresses = addresses,
@@ -638,18 +627,16 @@ fun AppNavigation(
             var connection by remember { mutableStateOf<ConnectionInfo?>(null) }
             LaunchedEffect(route.id, serviceState) {
                 val running = serviceState as? RunState.Running ?: return@LaunchedEffect
+                connection = loadDeviceConnection(container.systemRepository, route.id)
                 try {
-                    connection = container.systemRepository?.connections()
-                        ?.connections?.get(route.id)
-                } catch (_: Exception) { }
-                container.eventRepository?.deviceConnections()?.collect { (id, _) ->
-                    if (id == route.id) {
-                        try {
-                            connection = container.systemRepository?.connections()
-                                ?.connections?.get(route.id)
-                        } catch (_: Exception) { }
+                    container.eventRepository?.deviceConnections()?.collect { (id, _) ->
+                        if (id == route.id) {
+                            connection = loadDeviceConnection(container.systemRepository, route.id)
+                        }
                     }
-                }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) { }
             }
 
             DeviceDetailScreen(
@@ -659,48 +646,43 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onPause = { id ->
                     scope.launch {
-                        try { container.client?.pauseDevice(id) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.pauseDevice(id) },
+                            appState,
+                            "Could not pause device",
+                        )
                     }
                 },
                 onResume = { id ->
                     scope.launch {
-                        try { container.client?.resumeDevice(id) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.resumeDevice(id) },
+                            appState,
+                            "Could not resume device",
+                        )
                     }
                 },
                 onEdit = { id -> navController.navigate(EditDeviceRoute(id)) },
                 onShareExistingFolders = { deviceId ->
                     scope.launch {
-                        val folderRepo = container.folderRepository
-                        if (folderRepo == null) {
-                            appState.setDiagnostic("Could not share folders: Syncthing service not running")
-                            appState.pushLog("App: could not share folders with $deviceId: service not running")
-                            return@launch
-                        }
-                        try {
-                            folders.forEach { folder ->
-                                if (folder.devices.none { it.deviceID == deviceId }) {
-                                    folderRepo.setFolderDevices(
-                                        folderId = folder.id,
-                                        devices = folder.devices + FolderDevice(deviceID = deviceId),
-                                    )
-                                }
-                            }
-                            appState.setFolders(folderRepo.folders())
-                            appState.setDiagnostic(null)
-                            appState.pushLog("App: existing folders shared with $deviceId")
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
-                            appState.setDiagnostic("Could not share folders with device: $detail")
-                            appState.pushLog("App: could not share folders with $deviceId: $detail")
-                        }
+                        shareExistingFoldersWithDevice(
+                            folderRepo = container.folderRepository,
+                            folders = folders,
+                            deviceId = deviceId,
+                            appState = appState,
+                        )
                     }
                 },
                 onRemove = { id ->
                     scope.launch {
-                        try { container.client?.deleteDevice(id) } catch (_: Exception) { return@launch }
-                        navController.popBackStack()
+                        fireAndForget(
+                            {
+                                container.client?.deleteDevice(id)
+                                navController.popBackStack()
+                            },
+                            appState,
+                            "Could not remove device",
+                        )
                     }
                 },
                 localDeviceId = localDeviceId,
@@ -710,6 +692,7 @@ fun AppNavigation(
             val route = backStackEntry.toRoute<AddDeviceRoute>()
             AddDeviceScreen(
                 initialDeviceId = route.prefillId,
+                localDeviceId = localDeviceId,
                 onAdd = { deviceId, name, shareExistingFolders ->
                     val repo = container.deviceRepository
                         ?: return@AddDeviceScreen Result.failure(
@@ -719,7 +702,7 @@ fun AppNavigation(
                         ?: return@AddDeviceScreen Result.failure(
                             Exception("Syncthing service not running")
                         )
-                    try {
+                    return@AddDeviceScreen try {
                         if (devices.none { it.deviceID == deviceId }) {
                             repo.addDevice(
                                 DeviceDto(
@@ -769,7 +752,7 @@ fun AppNavigation(
                     if (localId.isBlank()) {
                         return@AddFolderScreen Result.failure(Exception("Local device ID unavailable"))
                     }
-                    try {
+                    return@AddFolderScreen try {
                         if (folders.any { it.id.equals(folderId, ignoreCase = true) }) {
                             return@AddFolderScreen Result.failure(Exception("Folder ID already exists"))
                         }
@@ -806,7 +789,11 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onRescan = { id ->
                     scope.launch {
-                        try { container.client?.rescanFolder(id) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.rescanFolder(id) },
+                            appState,
+                            "Could not rescan folder from error center",
+                        )
                     }
                 },
             )
@@ -826,24 +813,31 @@ fun AppNavigation(
                     val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
                     scope.launch {
                         ConflictResolver.keepCurrent(folderPath, c.path)
-                        try { container.client?.rescanFolder(c.folderId) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.rescanFolder(c.folderId) },
+                            appState,
+                            "Could not rescan after conflict resolution",
+                        )
                     }
                 },
                 onKeepRemote = { c ->
                     val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
                     scope.launch {
                         ConflictResolver.keepConflict(folderPath, c.path)
-                        try { container.client?.rescanFolder(c.folderId) } catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.rescanFolder(c.folderId) },
+                            appState,
+                            "Could not rescan after conflict resolution",
+                        )
                     }
                 },
                 onDuplicate = { c ->
-                    // "Keep both" is filesystem-no-op (both files already
-                    // exist), but users need feedback that their tap
-                    // registered. Fire a rescan so the list refreshes and the
-                    // tap feels responsive.
                     scope.launch {
-                        try { container.client?.rescanFolder(c.folderId) }
-                        catch (_: Exception) { }
+                        fireAndForget(
+                            { container.client?.rescanFolder(c.folderId) },
+                            appState,
+                            "Could not rescan after conflict resolution",
+                        )
                     }
                 },
             )

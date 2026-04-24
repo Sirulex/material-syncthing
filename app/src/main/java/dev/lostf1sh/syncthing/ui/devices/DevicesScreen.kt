@@ -19,20 +19,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumExtendedFloatingActionButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -46,13 +42,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
-import dev.lostf1sh.syncthing.ui.qr.ShowQrDialog
+import dev.lostf1sh.syncthing.ui.core.theme.StatusTokens
 
 private enum class DeviceFilter { All, Online, Offline }
 
@@ -72,15 +68,6 @@ fun DevicesScreen(
     var selectedFilter by rememberSaveable { mutableStateOf(DeviceFilter.All) }
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
-    var showingLocalQr by rememberSaveable { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
-
-    if (showingLocalQr && !localDeviceId.isNullOrBlank()) {
-        ShowQrDialog(
-            deviceId = localDeviceId,
-            onDismiss = { showingLocalQr = false },
-        )
-    }
 
     val filteredDevices = remember(devices, connections, selectedFilter) {
         devices.filter { device ->
@@ -115,28 +102,17 @@ fun DevicesScreen(
                         FilterChip(
                             selected = selectedFilter == DeviceFilter.All,
                             onClick = { selectedFilter = DeviceFilter.All },
-                            label = { Text("All") },
+                            label = { Text(stringResource(R.string.filter_all)) },
                         )
                         FilterChip(
                             selected = selectedFilter == DeviceFilter.Online,
                             onClick = { selectedFilter = DeviceFilter.Online },
-                            label = { Text("Online") },
+                            label = { Text(stringResource(R.string.filter_online)) },
                         )
                         FilterChip(
                             selected = selectedFilter == DeviceFilter.Offline,
                             onClick = { selectedFilter = DeviceFilter.Offline },
-                            label = { Text("Offline") },
-                        )
-                    }
-                }
-                if (!localDeviceId.isNullOrBlank()) {
-                    item {
-                        LocalDeviceIdCard(
-                            deviceId = localDeviceId,
-                            onCopy = {
-                                clipboard.setText(AnnotatedString(localDeviceId))
-                            },
-                            onShowQr = { showingLocalQr = true },
+                            label = { Text(stringResource(R.string.filter_offline)) },
                         )
                     }
                 }
@@ -154,13 +130,13 @@ fun DevicesScreen(
                 } else if (filteredDevices.isEmpty()) {
                     item {
                         EmptyState(
-                            title = if (devices.isEmpty()) "No remote devices" else "No matching devices",
+                            title = if (devices.isEmpty()) stringResource(R.string.no_devices) else stringResource(R.string.no_matching_devices),
                             description = if (devices.isEmpty()) {
-                                "Add your phone's device ID in the Syncthing Web GUI on your PC, then add the PC here."
+                                stringResource(R.string.no_devices_description)
                             } else {
-                                "Try a different filter to view other devices."
+                                stringResource(R.string.no_matching_devices_description)
                             },
-                            actionLabel = "Add Device",
+                            actionLabel = stringResource(R.string.add_device),
                             onAction = onAddDevice,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -189,92 +165,16 @@ fun DevicesScreen(
             if (onScanQr != null) {
                 SmallExtendedFloatingActionButton(
                     onClick = onScanQr,
-                    icon = { Icon(Icons.Default.QrCode, contentDescription = null) },
-                    text = { Text("Scan") },
+                    icon = { Icon(Icons.Default.QrCode, contentDescription = stringResource(R.string.cd_scan_qr)) },
+                    text = { Text(stringResource(R.string.scan_qr)) },
                 )
             }
-            MediumExtendedFloatingActionButton(
-                onClick = { onAddDevice?.invoke() },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Add Device") },
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun LocalDeviceIdCard(
-    deviceId: String,
-    onCopy: () -> Unit,
-    onShowQr: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ),
-        shape = MaterialTheme.shapes.extraLarge,
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.QrCode,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            if (onAddDevice != null) {
+                MediumExtendedFloatingActionButton(
+                    onClick = onAddDevice,
+                    icon = { Icon(Icons.Default.Add, contentDescription = stringResource(R.string.cd_add_device)) },
+                    text = { Text(stringResource(R.string.add_device)) },
                 )
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "This device code",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Text(
-                        text = "Use this in the Syncthing Web GUI on your PC.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-            }
-
-            Text(
-                text = deviceId,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onShowQr,
-                    shapes = ButtonDefaults.shapes(),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode,
-                        contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize),
-                    )
-                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("QR Code")
-                }
-                FilledTonalButton(
-                    onClick = onCopy,
-                    shapes = ButtonDefaults.shapes(),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize),
-                    )
-                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Copy ID")
-                }
             }
         }
     }
@@ -330,28 +230,29 @@ private fun DeviceCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isLocal) "Your Device"
+                    text = if (isLocal) stringResource(R.string.your_device)
                     else device.name.ifBlank { device.deviceID.take(7) },
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
                     text = when {
                         isLocal -> device.name.ifBlank { device.deviceID.take(7) }
-                        isConnected -> "Connected"
-                        else -> "Disconnected"
+                        isConnected -> stringResource(R.string.connected)
+                        else -> stringResource(R.string.disconnected)
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isConnected || isLocal) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isConnected || isLocal) StatusTokens.online
+                    else StatusTokens.offline,
                 )
             }
 
             // Connection dot (suppress for the local device — it's always "present")
             if (isConnected && !isLocal) {
+                val onlineColor = StatusTokens.online
                 androidx.compose.foundation.Canvas(
                     modifier = Modifier.size(8.dp)
                 ) {
-                    drawCircle(color = androidx.compose.ui.graphics.Color(0xFF059669))
+                    drawCircle(color = onlineColor)
                 }
             }
         }

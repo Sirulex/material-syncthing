@@ -31,7 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.lostf1sh.syncthing.R
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -91,7 +93,7 @@ fun IgnoreEditorScreen(
                     .weight(1f),
                 enabled = !loading,
                 label = { Text(".stignore") },
-                placeholder = { Text("*.tmp\n!important.tmp\nbuild/") },
+                placeholder = { Text(stringResource(R.string.ignore_editor_placeholder)) },
             )
             Spacer(Modifier.height(12.dp))
             FilledTonalButton(
@@ -103,9 +105,9 @@ fun IgnoreEditorScreen(
                 enabled = !loading,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Icon(Icons.Default.Check, null, Modifier.size(ButtonDefaults.IconSize))
+                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.save), Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
         }
     }

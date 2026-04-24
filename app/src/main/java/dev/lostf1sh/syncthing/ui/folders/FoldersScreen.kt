@@ -44,12 +44,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 import dev.lostf1sh.syncthing.ui.core.components.StatusChip
+import dev.lostf1sh.syncthing.ui.core.format.formatBytes
 
 private enum class FolderFilter { All, Syncing, Paused }
 
@@ -103,17 +106,17 @@ fun FoldersScreen(
                         FilterChip(
                             selected = selectedFilter == FolderFilter.All,
                             onClick = { selectedFilter = FolderFilter.All },
-                            label = { Text("All") },
+                            label = { Text(stringResource(R.string.filter_all)) },
                         )
                         FilterChip(
                             selected = selectedFilter == FolderFilter.Syncing,
                             onClick = { selectedFilter = FolderFilter.Syncing },
-                            label = { Text("Syncing") },
+                            label = { Text(stringResource(R.string.filter_syncing)) },
                         )
                         FilterChip(
                             selected = selectedFilter == FolderFilter.Paused,
                             onClick = { selectedFilter = FolderFilter.Paused },
-                            label = { Text("Paused") },
+                            label = { Text(stringResource(R.string.filter_paused)) },
                         )
                     }
                 }
@@ -131,13 +134,13 @@ fun FoldersScreen(
                 } else if (filteredFolders.isEmpty()) {
                     item {
                         EmptyState(
-                            title = if (folders.isEmpty()) "No folders" else "No matching folders",
+                            title = if (folders.isEmpty()) stringResource(R.string.no_folders) else stringResource(R.string.no_matching_folders),
                             description = if (folders.isEmpty()) {
-                                "Add a folder to start syncing files between devices."
+                                stringResource(R.string.no_folders_description)
                             } else {
-                                "Try a different filter to view other folders."
+                                stringResource(R.string.no_matching_folders_description)
                             },
-                            actionLabel = "Add Folder",
+                            actionLabel = stringResource(R.string.add_folder),
                             onAction = onAddFolder,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -170,10 +173,10 @@ fun FoldersScreen(
                 icon = {
                     Icon(
                         Icons.Default.CreateNewFolder,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_add_folder),
                     )
                 },
-                text = { Text("Add Folder") },
+                text = { Text(stringResource(R.string.add_folder)) },
             )
         }
     }
@@ -221,9 +224,9 @@ private fun FolderCard(
                         modifier = Modifier.size(40.dp),
                     ) {
                         if (folder.paused) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = "Resume")
+                            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.cd_resume_folder))
                         } else {
-                            Icon(Icons.Default.Folder, contentDescription = "Pause")
+                            Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_pause_folder))
                         }
                     }
                 } else {
@@ -265,7 +268,7 @@ private fun FolderCard(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    text = "${(progress * 100).toInt()}% — ${formatBytes(inSyncBytes)} / ${formatBytes(globalBytes)}",
+                    text = "${(progress * 100).toInt()}% — ${dev.lostf1sh.syncthing.ui.core.format.formatBytes(inSyncBytes)} / ${dev.lostf1sh.syncthing.ui.core.format.formatBytes(globalBytes)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -281,12 +284,4 @@ private fun FolderCard(
     }
 }
 
-private fun formatBytes(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
-    val kb = bytes / 1024.0
-    if (kb < 1024) return "%.1f KiB".format(kb)
-    val mb = kb / 1024.0
-    if (mb < 1024) return "%.1f MiB".format(mb)
-    val gb = mb / 1024.0
-    return "%.1f GiB".format(gb)
-}
+

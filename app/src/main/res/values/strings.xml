@@ -12,6 +12,7 @@
     <!-- Tabs -->
     <string name="tab_folders">Folders</string>
     <string name="tab_devices">Devices</string>
+    <string name="tab_overview">Overview</string>
 
     <!-- Folders -->
     <string name="no_folders">No folders</string>
@@ -21,15 +22,37 @@
     <string name="folder_type_send_only">Send Only</string>
     <string name="folder_type_receive_only">Receive Only</string>
     <string name="folder_type_receive_encrypted">Receive Encrypted</string>
+    <string name="folder_browser_empty">Empty</string>
+    <string name="folder_browser_empty_description">This directory has no tracked files.</string>
+    <string name="folder_browser_loading">Loading…</string>
+    <string name="folder_detail_repair_index">Repairing folder index…</string>
+    <string name="folder_detail_repair_index_timeout">Folder index reset started, but Syncthing API did not come back yet</string>
+
+    <!-- Ignores -->
+    <string name="ignore_editor_title">Ignores</string>
+    <string name="ignore_editor_hint">One pattern per line. Leading `!` negates, `(?i)` makes pattern case-insensitive, `(?d)` deletes ignored items.</string>
+    <string name="ignore_editor_placeholder">*.tmp\n!important.tmp\nbuild/</string>
+    <string name="ignore_editor_loading">Loading…</string>
 
     <!-- Devices -->
-    <string name="no_devices">No devices</string>
-    <string name="no_devices_description">Add a remote device to start syncing.</string>
+    <string name="no_devices">No remote devices</string>
+    <string name="no_devices_description">Add your phone\'s device ID in the Syncthing Web GUI on your PC, then add the PC here.</string>
+    <string name="no_matching_devices">No matching devices</string>
+    <string name="no_matching_devices_description">Try a different filter to view other devices.</string>
+    <string name="no_matching_folders">No matching folders</string>
+    <string name="no_matching_folders_description">Try a different filter to view other folders.</string>
     <string name="add_device">Add Device</string>
     <string name="scan_qr">Scan QR Code</string>
     <string name="enter_device_id">Enter Device ID</string>
     <string name="connected">Connected</string>
     <string name="disconnected">Disconnected</string>
+    <string name="this_device_code">This device code</string>
+    <string name="this_device_code_description">Use this in the Syncthing Web GUI on your PC.</string>
+    <string name="qr_code">QR Code</string>
+    <string name="your_device">Your Device</string>
+    <string name="device_detail_share_folders">Share existing folders</string>
+    <string name="device_detail_share_folders_error">Could not share folders with device</string>
+    <string name="device_detail_share_folders_service_error">Could not share folders: Syncthing service not running</string>
 
     <!-- Settings -->
     <string name="settings">Settings</string>
@@ -53,10 +76,69 @@
     <string name="copy_id">Copy ID</string>
     <string name="close">Close</string>
     <string name="back">Back</string>
+    <string name="save">Save</string>
+    <string name="browse">Browse</string>
+    <string name="ignores">Ignores</string>
+    <string name="root">Root</string>
+    <string name="directory">Directory</string>
+    <string name="file">File</string>
+    <string name="copy_path">Copy path</string>
+    <string name="add_to_ignores">Add to ignores</string>
+    <string name="rescan_directory">Rescan this directory</string>
+    <string name="rescan_file">Rescan this file</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_back">Back</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_show_device_code">Show device code</string>
+    <string name="cd_qr_code">QR code for device ID</string>
+    <string name="cd_add_folder">Add folder</string>
+    <string name="cd_add_device">Add device</string>
+    <string name="cd_scan_qr">Scan QR code</string>
+    <string name="cd_pause_folder">Pause folder</string>
+    <string name="cd_resume_folder">Resume folder</string>
+    <string name="cd_folder_icon">Folder</string>
+    <string name="cd_device_icon">Device</string>
+    <string name="cd_connected_indicator">Connected</string>
+    <string name="cd_disconnected_indicator">Disconnected</string>
+    <string name="cd_edit">Edit</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_share">Share</string>
+    <string name="cd_copy">Copy</string>
+    <string name="cd_refresh">Refresh</string>
+    <string name="cd_ignores">Ignores</string>
+
+    <!-- Home / Overview -->
+    <string name="starting_syncthing">Starting Syncthing…</string>
+    <string name="syncthing_problem">Syncthing problem</string>
+    <string name="insights">Insights</string>
+    <string name="recent_changes">Recent Changes</string>
+    <string name="filter_all">All</string>
+    <string name="filter_online">Online</string>
+    <string name="filter_offline">Offline</string>
+    <string name="filter_syncing">Syncing</string>
+    <string name="filter_paused">Paused</string>
+
+    <!-- Share target -->
+    <string name="share_to_syncthing">Share to Syncthing</string>
+    <string name="share_files_ready">%1$d file(s) ready to copy</string>
 
     <!-- QR -->
     <string name="device_id">Device ID</string>
     <string name="qr_content_description">QR code for device ID</string>
+
+    <!-- Diagnostics / Errors -->
+    <string name="diagnostics">Diagnostics</string>
+    <string name="error_center">Error Center</string>
+    <string name="conflicts">Conflicts</string>
+    <string name="could_not_repair_folder_index">Could not repair folder index</string>
+    <string name="could_not_update_folder">Could not update folder</string>
+    <string name="could_not_update_device">Could not update device</string>
+    <string name="could_not_add_folder">Could not add folder</string>
+    <string name="could_not_add_device">Could not add or share device</string>
+    <string name="service_not_running">Syncthing service not running</string>
+    <string name="local_device_unavailable">Local device ID unavailable</string>
+    <string name="folder_id_exists">Folder ID already exists</string>
 
     <!-- Notifications -->
     <string name="notification_channel_persistent">Syncthing Service</string>

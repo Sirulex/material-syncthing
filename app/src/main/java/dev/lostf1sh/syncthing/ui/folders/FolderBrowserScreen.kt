@@ -49,8 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.lostf1sh.syncthing.R
 import dev.lostf1sh.syncthing.api.dto.BrowseEntry
 import dev.lostf1sh.syncthing.ui.core.components.EmptyState
 import kotlinx.coroutines.launch
@@ -99,12 +101,12 @@ fun FolderBrowserScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack, shapes = IconButtonDefaults.shapes()) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = onEditIgnores, shapes = IconButtonDefaults.shapes()) {
-                        Icon(Icons.Default.Description, contentDescription = "Ignores")
+                        Icon(Icons.Default.Description, contentDescription = stringResource(R.string.ignores))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -133,12 +135,12 @@ fun FolderBrowserScreen(
             ) {
                 if (loading && entries.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.folder_browser_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else if (entries.isEmpty()) {
                     EmptyState(
-                        title = "Empty",
-                        description = "This directory has no tracked files.",
+                        title = stringResource(R.string.folder_browser_empty),
+                        description = stringResource(R.string.folder_browser_empty_description),
                     )
                 } else {
                     LazyColumn(
@@ -183,7 +185,7 @@ fun FolderBrowserScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = if (entry.isDirectory) "Directory" else formatBrowseBytes(entry.size),
+                    text = if (entry.isDirectory) stringResource(R.string.directory) else formatBrowseBytes(entry.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -198,7 +200,7 @@ fun FolderBrowserScreen(
                     Icon(Icons.Default.Refresh, null, Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
                     Text(
-                        if (entry.isDirectory) "Rescan this directory" else "Rescan this file",
+                        if (entry.isDirectory) stringResource(R.string.rescan_directory) else stringResource(R.string.rescan_file),
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -209,7 +211,7 @@ fun FolderBrowserScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Copy path", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.copy_path), modifier = Modifier.weight(1f))
                 }
                 TextButton(
                     onClick = {
@@ -218,7 +220,7 @@ fun FolderBrowserScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Add to ignores", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.add_to_ignores), modifier = Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -245,7 +247,7 @@ private fun BreadcrumbRow(
             onClick = { onCrumbClick(0) },
             shapes = IconButtonDefaults.shapes(),
         ) {
-            Icon(Icons.Default.Home, contentDescription = "Root")
+            Icon(Icons.Default.Home, contentDescription = stringResource(R.string.root))
         }
         crumbs.forEachIndexed { index, crumb ->
             Icon(

@@ -123,14 +123,14 @@ fun HomeScreen(
                         onClick = onShowDeviceCode,
                         shapes = IconButtonDefaults.shapes(),
                     ) {
-                        Icon(Icons.Default.QrCode, contentDescription = "Show device code")
+                        Icon(Icons.Default.QrCode, contentDescription = stringResource(R.string.cd_show_device_code))
                     }
                     // Expressive: IconButton with animated shapes
                     IconButton(
                         onClick = onSettingsClick,
                         shapes = IconButtonDefaults.shapes(),
                     ) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -198,9 +198,9 @@ private fun ExpressiveHomeTabs(
     modifier: Modifier = Modifier,
 ) {
     val tabs = listOf(
-        HomeTabItem("Overview", Icons.Default.Insights),
-        HomeTabItem("Folders", Icons.Default.Folder),
-        HomeTabItem("Devices", Icons.Default.Devices),
+        HomeTabItem(stringResource(R.string.tab_overview), Icons.Default.Insights),
+        HomeTabItem(stringResource(R.string.tab_folders), Icons.Default.Folder),
+        HomeTabItem(stringResource(R.string.tab_devices), Icons.Default.Devices),
     )
     Surface(
         shape = RoundedCornerShape(28.dp),
@@ -376,7 +376,7 @@ private fun OverviewTab(
             HealthBanner(health = health)
         } else {
             Text(
-                text = "Starting Syncthing...",
+                text = stringResource(R.string.starting_syncthing),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp),
@@ -412,7 +412,7 @@ private fun DiagnosticBanner(
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(
-                    text = "Syncthing problem",
+                    text = stringResource(R.string.syncthing_problem),
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
