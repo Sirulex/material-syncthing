@@ -303,19 +303,28 @@ fun AppNavigation(
                     if (path.isBlank() || uris.isEmpty()) return@ShareTargetScreen
                     scope.launch {
                         copying = true
-                        val copied = withContext(Dispatchers.IO) {
+                        val result = withContext(Dispatchers.IO) {
                             copyUrisToFolder(context, uris, path)
                         }
-                        if (copied > 0) {
+                        if (result.copied > 0) {
                             fireAndForget(
                                 { container.client?.rescanSubdir(folderId, "_incoming") },
                                 appState,
                                 "Could not trigger rescan after share",
                             )
                         }
+                        if (result.failed > 0) {
+                            appState.setDiagnostic(
+                                "Could not import ${result.failed} shared file(s); ${result.copied} copied"
+                            )
+                        } else {
+                            appState.setDiagnostic(null)
+                        }
                         copying = false
-                        incomingShareUris = emptyList()
-                        navController.popBackStack()
+                        if (result.copied > 0) {
+                            incomingShareUris = emptyList()
+                            navController.popBackStack()
+                        }
                     }
                 },
             )
@@ -812,7 +821,15 @@ fun AppNavigation(
                 onKeepLocal = { c ->
                     val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
                     scope.launch {
-                        ConflictResolver.keepCurrent(folderPath, c.path)
+                        when (val result = withContext(Dispatchers.IO) {
+                            ConflictResolver.keepCurrent(folderPath, c.path)
+                        }) {
+                            is ConflictResolver.Result.Failure -> {
+                                appState.setDiagnostic("Could not resolve conflict: ${result.reason}")
+                                return@launch
+                            }
+                            ConflictResolver.Result.Success -> appState.setDiagnostic(null)
+                        }
                         fireAndForget(
                             { container.client?.rescanFolder(c.folderId) },
                             appState,
@@ -823,7 +840,15 @@ fun AppNavigation(
                 onKeepRemote = { c ->
                     val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
                     scope.launch {
-                        ConflictResolver.keepConflict(folderPath, c.path)
+                        when (val result = withContext(Dispatchers.IO) {
+                            ConflictResolver.keepConflict(folderPath, c.path)
+                        }) {
+                            is ConflictResolver.Result.Failure -> {
+                                appState.setDiagnostic("Could not resolve conflict: ${result.reason}")
+                                return@launch
+                            }
+                            ConflictResolver.Result.Success -> appState.setDiagnostic(null)
+                        }
                         fireAndForget(
                             { container.client?.rescanFolder(c.folderId) },
                             appState,

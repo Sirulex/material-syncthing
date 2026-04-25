@@ -151,7 +151,11 @@ fun DiagnosticsScreen(
                 onClick = {
                     exporting = true
                     scope.launch {
-                        val zipFile = exportDiagnostics(context)
+                        val zipFile = exportDiagnostics(
+                            context = context,
+                            systemStatus = systemStatus,
+                            logs = logs,
+                        )
                         exporting = false
                         if (zipFile != null) {
                             val uri = FileProvider.getUriForFile(
@@ -182,7 +186,11 @@ fun DiagnosticsScreen(
     }
 }
 
-private suspend fun exportDiagnostics(context: android.content.Context): File? =
+private suspend fun exportDiagnostics(
+    context: android.content.Context,
+    systemStatus: SystemStatus?,
+    logs: List<String>,
+): File? =
     withContext(Dispatchers.IO) {
         try {
             val outDir = File(context.cacheDir, "diagnostics")
@@ -210,6 +218,26 @@ private suspend fun exportDiagnostics(context: android.content.Context): File? =
                         .replace(Regex("<apikey>[^<]*</apikey>"), "<apikey>REDACTED</apikey>")
                         .replace(Regex("<password>[^<]*</password>"), "<password>REDACTED</password>")
                     zip.write(redacted.toByteArray())
+                    zip.closeEntry()
+                }
+
+                zip.putNextEntry(ZipEntry("sync-state.txt"))
+                val state = buildString {
+                    if (systemStatus == null) {
+                        appendLine("System status: unavailable")
+                    } else {
+                        appendLine("Device ID: ${systemStatus.myID}")
+                        appendLine("Uptime: ${systemStatus.uptime}s")
+                        appendLine("Memory: ${systemStatus.alloc / 1024 / 1024} MB")
+                        appendLine("Goroutines: ${systemStatus.goroutines}")
+                    }
+                }
+                zip.write(state.toByteArray())
+                zip.closeEntry()
+
+                if (logs.isNotEmpty()) {
+                    zip.putNextEntry(ZipEntry("app-log-tail.txt"))
+                    zip.write(logs.takeLast(500).joinToString("\n").toByteArray())
                     zip.closeEntry()
                 }
 

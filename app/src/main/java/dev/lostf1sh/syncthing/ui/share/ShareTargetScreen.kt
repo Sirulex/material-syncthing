@@ -126,17 +126,22 @@ fun ShareTargetScreen(
     }
 }
 
+data class ShareCopyResult(
+    val copied: Int,
+    val failed: Int,
+)
+
 /**
- * Copy all incoming Uris into [targetFolderPath]/_incoming. Returns number
- * of successful copies. Safe to call on IO dispatcher.
+ * Copy all incoming Uris into [targetFolderPath]/_incoming. Safe to call on IO dispatcher.
  */
 fun copyUrisToFolder(
     context: Context,
     uris: List<Uri>,
     targetFolderPath: String,
-): Int {
+): ShareCopyResult {
     val incomingDir = File(targetFolderPath, "_incoming").apply { mkdirs() }
     var ok = 0
+    var failed = 0
     for (uri in uris) {
         val displayName = queryDisplayName(context, uri)
             ?: uri.lastPathSegment
@@ -144,15 +149,22 @@ fun copyUrisToFolder(
         val safeName = displayName.replace(Regex("""[^\w.\-]"""), "_")
         val dest = uniqueDestination(incomingDir, safeName)
         try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
+            val inputStream = context.contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                failed++
+                continue
+            }
+            inputStream.use { input ->
                 FileOutputStream(dest).use { output ->
                     input.copyTo(output)
                 }
                 ok++
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            failed++
+        }
     }
-    return ok
+    return ShareCopyResult(copied = ok, failed = failed)
 }
 
 private fun queryDisplayName(context: Context, uri: Uri): String? {

@@ -188,18 +188,26 @@ fun ProfilesScreen(
                                 "wifi_only" -> {
                                     settingsStore.setWifiOnly(true)
                                     settingsStore.setChargingOnly(false)
+                                    settingsStore.setSchedulerEnabled(false)
                                 }
                                 "charging" -> {
                                     settingsStore.setWifiOnly(false)
                                     settingsStore.setChargingOnly(true)
+                                    settingsStore.setSchedulerEnabled(false)
                                 }
                                 "default" -> {
                                     settingsStore.setWifiOnly(false)
                                     settingsStore.setChargingOnly(false)
+                                    settingsStore.setSchedulerEnabled(false)
                                 }
                                 "night" -> {
-                                    settingsStore.setWifiOnly(true)
-                                    settingsStore.setChargingOnly(true)
+                                    settingsStore.setWifiOnly(false)
+                                    settingsStore.setChargingOnly(false)
+                                    settingsStore.setSchedulerEnabled(true)
+                                    settingsStore.setSchedulerStartHour(23)
+                                    settingsStore.setSchedulerStartMinute(0)
+                                    settingsStore.setSchedulerEndHour(6)
+                                    settingsStore.setSchedulerEndMinute(0)
                                 }
                             }
                         }

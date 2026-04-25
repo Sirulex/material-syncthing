@@ -6,7 +6,7 @@
 
 [![Build](https://img.shields.io/badge/build-passing-4ade80?logo=github)](https://github.com/lostf1sh/material-syncthing/actions)
 [![License](https://img.shields.io/badge/license-MPL--2.0-f59e0b?logo=mozilla)](LICENSE)
-[![Min SDK](https://img.shields.io/badge/minSdk-28(API%2029)-3b82f6?logo=android)](https://developer.android.com/about/versions/10)
+[![Min SDK](https://img.shields.io/badge/minSdk-28(API%2028)-3b82f6?logo=android)](https://developer.android.com/about/versions/9)
 [![Target SDK](https://img.shields.io/badge/targetSdk-35(API%2035)-8b5cf6?logo=android)](https://developer.android.com/about/versions/15)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-2026.03.00-4285f4?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
 
