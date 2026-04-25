@@ -24,14 +24,28 @@ object ConflictDetector {
 
     private val ISO_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneOffset.UTC)
 
+    /**
+     * Maximum directory depth explored during a conflict scan.
+     * Syncthing itself imposes no nesting limit, but an unbounded walkTopDown
+     * on a deeply nested tree (e.g. a developer project with node_modules) can
+     * block the IO dispatcher for seconds. 50 levels is far beyond any
+     * realistic user data layout while still covering all practical cases.
+     */
+    private const val MAX_SCAN_DEPTH = 50
+
     /** Scan a single folder. Returns an empty list on any I/O failure. */
     fun scan(folderId: String, folderPath: String): List<ConflictItem> {
-        val root = try { File(folderPath) } catch (_: Exception) { return emptyList() }
+        val root = try {
+            File(folderPath)
+        } catch (_: Exception) {
+            return emptyList()
+        }
         if (!root.exists() || !root.isDirectory) return emptyList()
 
         val conflicts = mutableListOf<ConflictItem>()
         try {
             root.walkTopDown()
+                .maxDepth(MAX_SCAN_DEPTH)
                 .filter { it.isFile && CONFLICT_REGEX.containsMatchIn(it.name) }
                 .forEach { file ->
                     val relPath = file.relativeTo(root).path
@@ -47,7 +61,8 @@ object ConflictDetector {
                         sizeRemote = file.length(),
                     )
                 }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+        }
 
         return conflicts.distinctBy { "${it.folderId}\u0000${it.path}" }
     }

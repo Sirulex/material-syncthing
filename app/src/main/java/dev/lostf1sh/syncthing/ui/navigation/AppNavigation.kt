@@ -59,6 +59,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
@@ -108,13 +109,15 @@ fun AppNavigation(
     val folderConditionsRaw by container.settingsStore.folderConditions.collectAsStateWithLifecycle(initialValue = "{}")
     val folderConditions = remember(folderConditionsRaw) { parseFolderConditions(folderConditionsRaw) }
     val theme by container.settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
-    var biometricEnabledState by remember { mutableStateOf<Boolean?>(null) }
+    // Collect continuously so that enabling/disabling biometric in Settings
+    // takes effect immediately without requiring an app restart.
+    // initialValue = null acts as the "not yet loaded" sentinel that shows
+    // an empty Surface while the DataStore emits its first value.
+    val biometricEnabledState: Boolean? by remember {
+        container.settingsStore.biometricEnabled.map { it as Boolean? }
+    }.collectAsStateWithLifecycle(initialValue = null)
     var biometricUnlocked by remember { mutableStateOf(false) }
     var showLocalDeviceCode by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        biometricEnabledState = container.settingsStore.biometricEnabled.first()
-    }
 
     if (biometricEnabledState == null) {
         androidx.compose.material3.Surface(
@@ -286,18 +289,34 @@ fun AppNavigation(
                 onTogglePauseFolder = { folderId, paused ->
                     scope.launch {
                         if (paused) {
-                            fireAndForget({ container.client?.pauseFolder(folderId) }, appState, "Could not pause folder")
+                            fireAndForget(
+                                { container.client?.pauseFolder(folderId) },
+                                appState,
+                                "Could not pause folder"
+                            )
                         } else {
-                            fireAndForget({ container.client?.resumeFolder(folderId) }, appState, "Could not resume folder")
+                            fireAndForget(
+                                { container.client?.resumeFolder(folderId) },
+                                appState,
+                                "Could not resume folder"
+                            )
                         }
                     }
                 },
                 onTogglePauseDevice = { deviceId, paused ->
                     scope.launch {
                         if (paused) {
-                            fireAndForget({ container.client?.pauseDevice(deviceId) }, appState, "Could not pause device")
+                            fireAndForget(
+                                { container.client?.pauseDevice(deviceId) },
+                                appState,
+                                "Could not pause device"
+                            )
                         } else {
-                            fireAndForget({ container.client?.resumeDevice(deviceId) }, appState, "Could not resume device")
+                            fireAndForget(
+                                { container.client?.resumeDevice(deviceId) },
+                                appState,
+                                "Could not resume device"
+                            )
                         }
                     }
                 },
@@ -399,7 +418,8 @@ fun AppNavigation(
                 while (currentCoroutineContext().isActive) {
                     try {
                         status = container.folderRepository?.folderStatus(route.id)
-                    } catch (_: Exception) { }
+                    } catch (_: Exception) {
+                    }
                     delay(2_000)
                 }
             }
@@ -689,7 +709,8 @@ fun AppNavigation(
                     }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) { }
+                } catch (_: Exception) {
+                }
             }
 
             DeviceDetailScreen(
@@ -874,6 +895,7 @@ fun AppNavigation(
                                 appState.setDiagnostic("Could not resolve conflict: ${result.reason}")
                                 return@launch
                             }
+
                             ConflictResolver.Result.Success -> appState.setDiagnostic(null)
                         }
                         fireAndForget(
@@ -893,6 +915,7 @@ fun AppNavigation(
                                 appState.setDiagnostic("Could not resolve conflict: ${result.reason}")
                                 return@launch
                             }
+
                             ConflictResolver.Result.Success -> appState.setDiagnostic(null)
                         }
                         fireAndForget(

@@ -47,11 +47,13 @@ class SyncthingService : Service() {
         val state: StateFlow<RunState> = _state.asStateFlow()
     }
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var syncthingJob: Job? = null
     private var constraintJob: Job? = null
-    @Volatile private var pausedByConstraint = false
-    @Volatile private var requestedPauseReason: String? = null
+    @Volatile
+    private var pausedByConstraint = false
+    @Volatile
+    private var requestedPauseReason: String? = null
     private lateinit var launcher: NativeLauncher
     private lateinit var bootstrapper: ConfigBootstrapper
     private lateinit var notifications: NotificationController
@@ -81,6 +83,7 @@ class SyncthingService : Service() {
                             pauseSyncthing(state.reason)
                         }
                     }
+
                     is SyncConstraints.ConstraintState.ShouldRun -> {
                         if (pausedByConstraint && !launcher.isRunning) {
                             Log.i(TAG, "Constraints satisfied; auto-resume")
@@ -100,10 +103,12 @@ class SyncthingService : Service() {
                 requestedPauseReason = null
                 stopSyncthing()
             }
+
             ACTION_PAUSE -> {
                 pausedByConstraint = false
                 pauseSyncthing("User requested pause")
             }
+
             ACTION_RESCAN_ALL -> rescanAllFolders()
             else -> {
                 pausedByConstraint = false
@@ -125,7 +130,10 @@ class SyncthingService : Service() {
                 try {
                     val list: List<dev.lostf1sh.syncthing.api.dto.Folder> = client.folders()
                     list.forEach { folder ->
-                        try { client.rescanFolder(folder.id) } catch (_: Exception) { }
+                        try {
+                            client.rescanFolder(folder.id)
+                        } catch (_: Exception) {
+                        }
                     }
                 } finally {
                     client.close()
@@ -226,7 +234,15 @@ class SyncthingService : Service() {
                         launcher.stop()
                     }
                     if (processJob.isCompleted) {
-                        Log.w(TAG, "Syncthing exited before API became ready with code ${processJob.await()}")
+                        // await() rethrows if the Deferred completed with an exception;
+                        // wrap it so a launcher crash here doesn't unwind the error-handling path.
+                        val exitCode = try {
+                            processJob.await()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Process job failed with exception before API was ready", e)
+                            -1
+                        }
+                        Log.w(TAG, "Syncthing exited before API became ready with code $exitCode")
                     }
                     stopSelf()
                     return@launch
@@ -253,6 +269,7 @@ class SyncthingService : Service() {
                         notifications.showCrashedNotification(exitCode, newState.reason)
                         stopSelf()
                     }
+
                     is RunState.Starting -> {
                         // Exit code 3 = restart requested. Schedule on Main so the
                         // current job unwinds before startSyncthing() mutates job state.
@@ -262,6 +279,7 @@ class SyncthingService : Service() {
                             startSyncthing()
                         }
                     }
+
                     else -> stopSelf()
                 }
             } catch (e: Exception) {

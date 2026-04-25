@@ -51,6 +51,8 @@ class NativeLauncher(
         }
     }
 
+    private val processLock = Any()
+
     @Volatile
     private var process: Process? = null
 
@@ -63,7 +65,10 @@ class NativeLauncher(
      * Returns the exit code.
      */
     suspend fun start(): Int = withContext(Dispatchers.IO) {
-        check(!isRunning) { "Syncthing is already running" }
+        // First check — fast-path rejection before doing any I/O.
+        synchronized(processLock) {
+            check(!isRunning) { "Syncthing is already running" }
+        }
         check(binaryPath.exists()) { "Binary missing: $binaryPath" }
 
         trimLogFile()
@@ -93,7 +98,14 @@ class NativeLauncher(
                 redirectErrorStream(true)
             }
             proc = pb.start()
-            process = proc
+            // Double-checked assignment: another concurrent start() could have
+            // slipped past the first check while this one was building the
+            // ProcessBuilder. Holding processLock makes the isRunning read and
+            // the process write a single atomic unit.
+            synchronized(processLock) {
+                check(!isRunning) { "Syncthing is already running (race)" }
+                process = proc
+            }
 
             // Pipe output to log file in background
             logThread = Thread({

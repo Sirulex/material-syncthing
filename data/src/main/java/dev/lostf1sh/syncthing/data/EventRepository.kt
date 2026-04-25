@@ -5,6 +5,7 @@ import dev.lostf1sh.syncthing.api.events.SyncthingEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -21,10 +22,12 @@ class EventRepository(private val eventStream: EventStream) {
     private val _events = MutableSharedFlow<SyncthingEvent>(
         replay = 0,
         extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val events: SharedFlow<SyncthingEvent> = _events.asSharedFlow()
 
     private val startLock = Any()
+
     @Volatile
     private var collectJob: Job? = null
 

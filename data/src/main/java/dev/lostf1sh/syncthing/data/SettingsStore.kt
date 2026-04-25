@@ -1,6 +1,7 @@
 package dev.lostf1sh.syncthing.data
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -81,6 +82,10 @@ class SettingsStore(private val context: Context) {
     suspend fun setSchedulerEndMinute(value: Int) = set(Keys.SCHEDULER_END_MINUTE, value)
     suspend fun setFolderConditions(json: String) = set(Keys.FOLDER_CONDITIONS, json)
 
+    private companion object {
+        private const val TAG = "SettingsStore"
+    }
+
     private fun pref(key: Preferences.Key<Boolean>, default: Boolean): Flow<Boolean> =
         context.dataStore.data.map { it[key] ?: default }
 
@@ -157,8 +162,20 @@ class SettingsStore(private val context: Context) {
 
     /** Import preferences from JSON. */
     suspend fun importFromJson(json: String) {
-        val element = kotlinx.serialization.json.Json.parseToJsonElement(json)
-        val obj = element as? kotlinx.serialization.json.JsonObject ?: return
+        val element = try {
+            kotlinx.serialization.json.Json.parseToJsonElement(json)
+        } catch (e: Exception) {
+            Log.w(TAG, "importFromJson: could not parse JSON — aborting import", e)
+            return
+        }
+        val obj = element as? kotlinx.serialization.json.JsonObject
+        if (obj == null) {
+            Log.w(
+                TAG,
+                "importFromJson: top-level element is not a JSON object (was ${element::class.simpleName}) — aborting import"
+            )
+            return
+        }
         context.dataStore.edit { prefs ->
             obj["run_on_boot"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.RUN_ON_BOOT] = it }
             obj["wifi_only"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.WIFI_ONLY] = it }
@@ -168,7 +185,9 @@ class SettingsStore(private val context: Context) {
             obj["onboarding_complete"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.ONBOARDING_COMPLETE] = it }
             obj["device_name"]?.jsonPrimitive?.contentOrNull?.let { prefs[Keys.DEVICE_NAME] = it }
             obj["notify_sync_complete"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.NOTIFY_SYNC_COMPLETE] = it }
-            obj["notify_device_connected"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.NOTIFY_DEVICE_CONNECTED] = it }
+            obj["notify_device_connected"]?.jsonPrimitive?.booleanOrNull?.let {
+                prefs[Keys.NOTIFY_DEVICE_CONNECTED] = it
+            }
             obj["notify_errors"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.NOTIFY_ERRORS] = it }
             obj["theme"]?.jsonPrimitive?.contentOrNull?.let { prefs[Keys.THEME] = it }
             obj["active_profile"]?.jsonPrimitive?.contentOrNull?.let { prefs[Keys.ACTIVE_PROFILE] = it }

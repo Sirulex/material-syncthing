@@ -41,40 +41,88 @@ class SyncConstraints(private val context: Context) {
         data class ShouldPause(val reason: String) : ConstraintState
     }
 
+    // Named intermediate types used by the nested combine pipeline below.
+    // Keeping them private prevents them from leaking into the public API and
+    // makes the combine lambdas fully type-safe — no Array<Any?> or unchecked
+    // casts, so reordering combine arguments produces a compile error instead
+    // of a silent wrong-type cast at runtime.
+    private data class RunConditions(
+        val wifiOnly: Boolean,
+        val allowMetered: Boolean,
+        val chargingOnly: Boolean,
+        val respectBatterySaver: Boolean,
+    )
+
+    private data class SchedulerConditions(
+        val enabled: Boolean,
+        val startHour: Int,
+        val startMinute: Int,
+        val endHour: Int,
+        val endMinute: Int,
+    )
+
+    private data class BatteryState(
+        val charging: Boolean,
+        val batterySaver: Boolean,
+    )
+
     /**
      * Emits constraint decisions based on current device state + preferences.
+     *
+     * Uses nested typed [combine] calls (max 5 arguments each) so every lambda
+     * parameter has a concrete compile-time type.  The previous single
+     * 13-argument [combine] required [Array]<[Any]?> + unchecked casts; any
+     * reordering of arguments would have silently cast the wrong type.
      */
     fun observe(settings: SettingsStore): Flow<ConstraintState> {
-        return combine(
-            observeNetwork(),
+        val runConditions = combine(
             settings.wifiOnly,
             settings.allowMetered,
             settings.chargingOnly,
             settings.respectBatterySaver,
+        ) { wifiOnly, allowMetered, chargingOnly, respectBatterySaver ->
+            RunConditions(wifiOnly, allowMetered, chargingOnly, respectBatterySaver)
+        }
+
+        val schedulerConditions = combine(
             settings.schedulerEnabled,
             settings.schedulerStartHour,
             settings.schedulerStartMinute,
             settings.schedulerEndHour,
             settings.schedulerEndMinute,
+        ) { enabled, startHour, startMinute, endHour, endMinute ->
+            SchedulerConditions(enabled, startHour, startMinute, endHour, endMinute)
+        }
+
+        val batteryState = combine(
             observeCharging(),
             observeBatterySaver(),
+        ) { charging, batterySaver ->
+            BatteryState(charging, batterySaver)
+        }
+
+        // Five arguments — fits the typed combine(F1,F2,F3,F4,F5) overload.
+        return combine(
+            observeNetwork(),
+            batteryState,
+            runConditions,
+            schedulerConditions,
             observeCurrentMinuteOfDay(),
-        ) { args: Array<Any?> ->
-            @Suppress("UNCHECKED_CAST")
+        ) { network, battery, conditions, scheduler, currentMinuteOfDay ->
             decide(
-                network = args[0] as NetworkState,
-                wifiOnly = args[1] as Boolean,
-                allowMetered = args[2] as Boolean,
-                chargingOnly = args[3] as Boolean,
-                respectBatterySaver = args[4] as Boolean,
-                schedulerEnabled = args[5] as Boolean,
-                schedulerStartHour = args[6] as Int,
-                schedulerStartMinute = args[7] as Int,
-                schedulerEndHour = args[8] as Int,
-                schedulerEndMinute = args[9] as Int,
-                charging = args[10] as Boolean,
-                batterySaver = args[11] as Boolean,
-                currentMinuteOfDay = args[12] as Int,
+                network = network,
+                wifiOnly = conditions.wifiOnly,
+                allowMetered = conditions.allowMetered,
+                chargingOnly = conditions.chargingOnly,
+                respectBatterySaver = conditions.respectBatterySaver,
+                schedulerEnabled = scheduler.enabled,
+                schedulerStartHour = scheduler.startHour,
+                schedulerStartMinute = scheduler.startMinute,
+                schedulerEndHour = scheduler.endHour,
+                schedulerEndMinute = scheduler.endMinute,
+                charging = battery.charging,
+                batterySaver = battery.batterySaver,
+                currentMinuteOfDay = currentMinuteOfDay,
             )
         }.distinctUntilChanged()
     }
@@ -116,7 +164,12 @@ class SyncConstraints(private val context: Context) {
             )
             if (!inRange) {
                 return ConstraintState.ShouldPause(
-                    "Outside scheduled hours (${formatTime(schedulerStartHour, schedulerStartMinute)} - ${formatTime(schedulerEndHour, schedulerEndMinute)})"
+                    "Outside scheduled hours (${formatTime(schedulerStartHour, schedulerStartMinute)} - ${
+                        formatTime(
+                            schedulerEndHour,
+                            schedulerEndMinute
+                        )
+                    })"
                 )
             }
         }

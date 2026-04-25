@@ -18,6 +18,7 @@ class NotificationPolicy(private val context: Context) {
 
     companion object {
         private const val TAG = "NotificationPolicy"
+
         // Must match NotificationController.CHANNEL_EVENTS (core-service).
         // Duplicated to avoid data→service dependency.
         private const val CHANNEL_EVENTS = "syncthing_events"
@@ -27,8 +28,7 @@ class NotificationPolicy(private val context: Context) {
         private const val ID_FOLDER_ERROR = 102
         private const val ID_CONFLICT = 103
 
-        /** Minimum bytes synced before a completion notification is shown. */
-        private const val SYNC_COMPLETE_THRESHOLD_BYTES = 1024L * 1024L // 1 MiB
+
     }
 
     private val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -64,6 +64,7 @@ class NotificationPolicy(private val context: Context) {
                     }
                 }
             }
+
             is SyncthingEvent.DeviceConnected -> {
                 if (notifyDeviceConnected) {
                     throttledNotify("device-${event.deviceId}", ID_DEVICE_CONNECTED) {
@@ -76,6 +77,7 @@ class NotificationPolicy(private val context: Context) {
                     }
                 }
             }
+
             is SyncthingEvent.FolderErrors -> {
                 if (notifyErrors) {
                     throttledNotify("errors-${event.folderId}", ID_FOLDER_ERROR) {
@@ -88,7 +90,8 @@ class NotificationPolicy(private val context: Context) {
                     }
                 }
             }
-            else -> { }
+
+            else -> {}
         }
     }
 

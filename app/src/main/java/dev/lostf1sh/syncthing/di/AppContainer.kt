@@ -41,7 +41,10 @@ class AppContainer(private val appContext: Context) {
         appScope.launch(Dispatchers.IO) {
             try {
                 appState.setLocalDeviceId(nativeLauncher.getDeviceId())
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                appState.setDiagnostic("Could not read local device ID: $detail")
+                android.util.Log.w("AppContainer", "getDeviceId() failed: $detail", e)
             }
         }
         appScope.launch {

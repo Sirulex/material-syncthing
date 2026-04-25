@@ -1,5 +1,6 @@
 package dev.lostf1sh.syncthing.ui.navigation
 
+import android.util.Log
 import dev.lostf1sh.syncthing.api.SyncthingClient
 import dev.lostf1sh.syncthing.api.dto.BrowseEntry
 import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
@@ -267,7 +268,13 @@ suspend fun fireAndForget(
         throw e
     } catch (e: Exception) {
         val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
-        appState?.setDiagnostic("$logTag: $detail")
-        appState?.pushLog("App: $logTag: $detail")
+        if (appState != null) {
+            appState.setDiagnostic("$logTag: $detail")
+            appState.pushLog("App: $logTag: $detail")
+        } else {
+            // appState is not available; fall back to logcat so the failure is
+            // never fully silent regardless of whether a diagnostic sink exists.
+            Log.w("RouteOperations", "${logTag ?: "fireAndForget"}: $detail", e)
+        }
     }
 }
