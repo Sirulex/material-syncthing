@@ -1,0 +1,24 @@
+# Material Syncthing baseline profile
+# Generated manually for common startup + UI paths
+
+HSPLandroidx/compose/runtime/ComposerImpl;->updateValue(Ljava/lang/Object;)V
+HSPLandroidx/compose/runtime/ComposerImpl;->startRestartGroup(I)Landroidx/compose/runtime/Composer;
+HSPLandroidx/compose/runtime/ComposerImpl;->endRestartGroup()Landroidx/compose/runtime/ScopeUpdateScope;
+HSPLandroidx/compose/runtime/ComposerKt;-><clinit>()V
+HSPLandroidx/compose/runtime/InternalComposeApi;-><clinit>()V
+HSPLandroidx/compose/ui/platform/AndroidComposeView;-><init>(Landroid/content/Context;)V
+HSPLandroidx/compose/material3/MaterialTheme;-><clinit>()V
+HSPLandroidx/compose/material3/MaterialTheme;->access$getLocalColorScheme$cp()Landroidx/compose/runtime/ProvidableCompositionLocal;
+HSPLandroidx/navigation/compose/NavHostKt;->NavHost(Landroidx/navigation/NavHostController;Landroidx/navigation/NavGraph;Landroidx/compose/ui/Modifier;)V
+HSPLandroidx/navigation/compose/NavHostControllerKt;->rememberNavController([Landroidx/navigation/Navigator;)Landroidx/navigation/NavHostController;
+HSPLandroidx/lifecycle/compose/FlowExtKt;->collectAsStateWithLifecycle(Lkotlinx/coroutines/flow/Flow;Ljava/lang/Object;Landroidx/lifecycle/LifecycleOwner;Landroidx/compose/runtime/Composer;II)Landroidx/compose/runtime/State;
+HSPLdev/lostf1sh/syncthing/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLdev/lostf1sh/syncthing/di/AppContainer;-><init>(Landroid/content/Context;)V
+HSPLdev/lostf1sh/syncthing/di/AppState;-><init>()V
+HSPLdev/lostf1sh/syncthing/ui/navigation/AppNavigationKt;->AppNavigation(Landroidx/compose/runtime/MutableState;Landroidx/compose/runtime/Composer;II)V
+HSPLdev/lostf1sh/syncthing/ui/home/HomeScreenKt;->HomeScreen(Ljava/util/List;Ljava/util/Map;Ljava/util/Map;Ljava/util/List;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Ldev/lostf1sh/syncthing/data/model/SyncHealth;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;III)V
+HSPLdev/lostf1sh/syncthing/ui/core/theme/ThemeKt;->SyncthingTheme(ZZLkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+HSPLdev/lostf1sh/syncthing/service/SyncthingService;->onStartCommand(Landroid/content/Intent;II)I
+HSPLdev/lostf1sh/syncthing/native/NativeLauncher;->fromContext(Landroid/content/Context;)Ldev/lostf1sh/syncthing/native/NativeLauncher;
+HSPLio/ktor/client/HttpClient;-><init>(Lio/ktor/client/engine/HttpClientEngine;Lio/ktor/client/HttpClientConfig;)V
+HSPLkotlinx/coroutines/flow/StateFlowImpl;-><init>(Ljava/lang/Object;)V
