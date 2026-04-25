@@ -2,6 +2,18 @@
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
 
     <shortcut
+        android:shortcutId="start"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_rescan"
+        android:shortcutShortLabel="@string/shortcut_start"
+        android:shortcutLongLabel="@string/shortcut_start_long">
+        <intent
+            android:action="dev.lostf1sh.syncthing.shortcut.START"
+            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+    </shortcut>
+
+    <shortcut
         android:shortcutId="rescan_all"
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_rescan"

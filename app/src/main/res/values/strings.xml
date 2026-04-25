@@ -146,6 +146,8 @@
     <string name="syncthing_crashed">Syncthing crashed</string>
 
     <!-- App shortcuts -->
+    <string name="shortcut_start">Start</string>
+    <string name="shortcut_start_long">Start Syncthing</string>
     <string name="shortcut_rescan_all">Rescan all</string>
     <string name="shortcut_rescan_all_long">Rescan all folders</string>
     <string name="shortcut_pause">Pause</string>

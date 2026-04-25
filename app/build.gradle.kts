@@ -73,6 +73,9 @@ dependencies {
     implementation(libs.camera.view)
     implementation(libs.zxing.core)
     implementation(libs.mlkit.barcode)
+    implementation(libs.biometric)
+    implementation(libs.browser)
+    implementation(libs.work.runtime.ktx)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

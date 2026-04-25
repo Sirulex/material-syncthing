@@ -20,7 +20,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -62,6 +66,7 @@ fun DevicesScreen(
     onScanQr: (() -> Unit)? = null,
     onRefresh: (suspend () -> Unit)? = null,
     localDeviceId: String? = null,
+    onTogglePause: ((String, Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -150,6 +155,9 @@ fun DevicesScreen(
                         isConnected = connections[device.deviceID] == true,
                         isLocal = device.deviceID == localDeviceId,
                         onClick = { onDeviceClick(device.deviceID) },
+                        onTogglePause = onTogglePause?.let { toggle ->
+                            { paused -> toggle(device.deviceID, paused) }
+                        },
                     )
                 }
                 item { Spacer(Modifier.height(80.dp)) }
@@ -187,6 +195,7 @@ private fun DeviceCard(
     isConnected: Boolean,
     isLocal: Boolean,
     onClick: () -> Unit,
+    onTogglePause: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -207,25 +216,40 @@ private fun DeviceCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Decorative connection indicator — NOT an interactive button.
-            // The whole card already handles clicks; a nested IconButton confused
-            // TalkBack by exposing two click targets with the same action.
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = if (isConnected) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceContainerHighest,
-                        shape = MaterialTheme.shapes.large,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Devices,
-                    contentDescription = null,
-                    tint = if (isConnected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            val haptic = LocalHapticFeedback.current
+            if (onTogglePause != null && !isLocal) {
+                androidx.compose.material3.FilledIconToggleButton(
+                    checked = !device.paused,
+                    onCheckedChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onTogglePause(!it)
+                    },
+                    shapes = androidx.compose.material3.IconButtonDefaults.toggleableShapes(),
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        if (device.paused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                        contentDescription = null,
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = if (isConnected) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceContainerHighest,
+                            shape = MaterialTheme.shapes.large,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Devices,
+                        contentDescription = null,
+                        tint = if (isConnected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             Column(modifier = Modifier.weight(1f)) {

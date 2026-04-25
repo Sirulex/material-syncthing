@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -85,6 +86,7 @@ fun IgnoreEditorScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
+            val validation = remember(text) { validateIgnorePatterns(text) }
             TextField(
                 value = text,
                 onValueChange = { text = it },
@@ -92,8 +94,14 @@ fun IgnoreEditorScreen(
                     .fillMaxWidth()
                     .weight(1f),
                 enabled = !loading,
+                isError = validation.isNotEmpty(),
                 label = { Text(".stignore") },
                 placeholder = { Text(stringResource(R.string.ignore_editor_placeholder)) },
+                supportingText = {
+                    if (validation.isNotEmpty()) {
+                        Text(validation.take(3).joinToString("; "), color = Color.Red)
+                    }
+                },
             )
             Spacer(Modifier.height(12.dp))
             FilledTonalButton(
@@ -102,7 +110,7 @@ fun IgnoreEditorScreen(
                     onSave(patterns)
                 },
                 shapes = ButtonDefaults.shapes(),
-                enabled = !loading,
+                enabled = !loading && validation.isEmpty(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Default.Check, contentDescription = stringResource(R.string.save), Modifier.size(ButtonDefaults.IconSize))
@@ -118,4 +126,28 @@ fun appendIgnorePattern(existing: List<String>, pattern: String): List<String> {
     if (pattern.isBlank()) return existing
     if (existing.contains(pattern)) return existing
     return existing + pattern
+}
+
+/** Basic validation for .stignore patterns. Returns list of errors. */
+fun validateIgnorePatterns(text: String): List<String> {
+    val errors = mutableListOf<String>()
+    text.lines().forEachIndexed { index, raw ->
+        val line = raw.trim()
+        if (line.isEmpty() || line.startsWith("//")) return@forEachIndexed
+        if (line.contains("//")) errors.add("Line ${index + 1}: double slash not allowed")
+        if (line.count { it == '[' } != line.count { it == ']' }) {
+            errors.add("Line ${index + 1}: unbalanced brackets [ ]")
+        }
+        if (line.count { it == '{' } != line.count { it == '}' }) {
+            errors.add("Line ${index + 1}: unbalanced braces { }")
+        }
+        if (line.count { it == '(' } != line.count { it == ')' }) {
+            // Allow (?i) and (?d) prefixes
+            val withoutPrefixes = line.replace("(?i)", "").replace("(?d)", "")
+            if (withoutPrefixes.count { it == '(' } != withoutPrefixes.count { it == ')' }) {
+                errors.add("Line ${index + 1}: unbalanced parentheses")
+            }
+        }
+    }
+    return errors
 }

@@ -62,9 +62,11 @@ import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
 import dev.lostf1sh.syncthing.ui.qr.ShowQrDialog
 import dev.lostf1sh.syncthing.ui.qr.QrScannerScreen
 import dev.lostf1sh.syncthing.ui.settings.BatteryWizardScreen
+import dev.lostf1sh.syncthing.ui.settings.BiometricLockScreen
 import dev.lostf1sh.syncthing.ui.settings.DiagnosticsScreen
 import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 
@@ -102,7 +104,15 @@ fun AppNavigation(
     val diagnostic by appState.diagnostic.collectAsStateWithLifecycle()
     val folderConditionsRaw by container.settingsStore.folderConditions.collectAsStateWithLifecycle(initialValue = "{}")
     val folderConditions = remember(folderConditionsRaw) { parseFolderConditions(folderConditionsRaw) }
+    val theme by container.settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
+    val biometricEnabled by container.settingsStore.biometricEnabled.collectAsStateWithLifecycle(initialValue = false)
+    var biometricUnlocked by remember { mutableStateOf(false) }
     var showLocalDeviceCode by remember { mutableStateOf(false) }
+
+    if (biometricEnabled && !biometricUnlocked) {
+        BiometricLockScreen(onUnlocked = { biometricUnlocked = true })
+        return
+    }
 
     if (showLocalDeviceCode) {
         ShowQrDialog(
@@ -259,6 +269,24 @@ fun AppNavigation(
                 onShowDeviceCode = { showLocalDeviceCode = true },
                 onSettingsClick = { navController.navigate(SettingsRoute) },
                 onOverviewClick = { navController.navigate(DiagnosticsRoute) },
+                onTogglePauseFolder = { folderId, paused ->
+                    scope.launch {
+                        if (paused) {
+                            fireAndForget({ container.client?.pauseFolder(folderId) }, appState, "Could not pause folder")
+                        } else {
+                            fireAndForget({ container.client?.resumeFolder(folderId) }, appState, "Could not resume folder")
+                        }
+                    }
+                },
+                onTogglePauseDevice = { deviceId, paused ->
+                    scope.launch {
+                        if (paused) {
+                            fireAndForget({ container.client?.pauseDevice(deviceId) }, appState, "Could not pause device")
+                        } else {
+                            fireAndForget({ container.client?.resumeDevice(deviceId) }, appState, "Could not resume device")
+                        }
+                    }
+                },
                 onRefresh = {
                     refreshHomeData(
                         folderRepo = container.folderRepository,
@@ -546,10 +574,11 @@ fun AppNavigation(
                 initialLabel = folder.label,
                 initialPath = folder.path,
                 initialType = folder.type,
+                initialVersioning = folder.versioning,
                 devices = devices,
                 localDeviceId = localDeviceId,
                 initialSharedDeviceIds = folder.devices.map { it.deviceID }.toSet(),
-                onSave = { label, path, type, sharedDeviceIds ->
+                onSave = { label, path, type, sharedDeviceIds, versioning ->
                     val folderRepo = container.folderRepository
                         ?: return@EditFolderScreen Result.failure(
                             Exception("Syncthing service not running")
@@ -565,6 +594,7 @@ fun AppNavigation(
                             path = path,
                             type = type,
                             devices = deviceIds.map { FolderDevice(deviceID = it) },
+                            versioning = versioning,
                         )
                         folderRepo.updateFolder(updated)
                         appState.setFolders(folderRepo.folders())
@@ -815,8 +845,10 @@ fun AppNavigation(
             fun pathOf(folderId: String): String? =
                 foldersNow.find { it.id == folderId }?.path?.ifBlank { null }
 
+            val folderLabels = remember(folders) { folders.associate { it.id to it.label.ifBlank { it.id } } }
             ConflictScreen(
                 conflicts = conflicts,
+                folderLabels = folderLabels,
                 onBack = { navController.popBackStack() },
                 onKeepLocal = { c ->
                     val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
@@ -882,6 +914,8 @@ fun AppNavigation(
             )
         }
         composable<SettingsRoute> {
+            val context = LocalContext.current
+            val guiPort by container.settingsStore.guiPort.collectAsStateWithLifecycle(initialValue = 8384)
             SettingsScreen(
                 settingsStore = container.settingsStore,
                 onBack = { navController.popBackStack() },
@@ -889,6 +923,10 @@ fun AppNavigation(
                 onDiagnosticsClick = { navController.navigate(DiagnosticsRoute) },
                 onErrorCenterClick = { navController.navigate(ErrorCenterRoute) },
                 onBatteryWizardClick = { navController.navigate(BatteryWizardRoute) },
+                onWebGuiClick = {
+                    val url = "http://127.0.0.1:$guiPort"
+                    CustomTabsIntent.Builder().build().launchUrl(context, android.net.Uri.parse(url))
+                },
             )
         }
         composable<RecentChangesRoute> {

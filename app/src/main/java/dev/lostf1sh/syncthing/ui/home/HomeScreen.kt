@@ -100,6 +100,8 @@ fun HomeScreen(
     bandwidth: List<BandwidthSample> = emptyList(),
     onInsightsClick: () -> Unit = {},
     onRecentChangesClick: () -> Unit = {},
+    onTogglePauseFolder: ((String, Boolean) -> Unit)? = null,
+    onTogglePauseDevice: ((String, Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by SyncthingService.state.collectAsStateWithLifecycle()
@@ -170,6 +172,7 @@ fun HomeScreen(
                         onFolderClick = onFolderClick,
                         onAddFolder = onAddFolder,
                         onRefresh = onRefresh,
+                        onTogglePause = onTogglePauseFolder,
                     )
                     2 -> DevicesScreen(
                         devices = devices,
@@ -179,6 +182,7 @@ fun HomeScreen(
                         onScanQr = onScanQr,
                         onRefresh = onRefresh,
                         localDeviceId = localDeviceId,
+                        onTogglePause = onTogglePauseDevice,
                     )
                 }
             }

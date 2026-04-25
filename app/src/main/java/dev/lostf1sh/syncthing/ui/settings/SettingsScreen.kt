@@ -1,7 +1,9 @@
 package dev.lostf1sh.syncthing.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,12 +14,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Search
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +39,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +63,7 @@ fun SettingsScreen(
     onDiagnosticsClick: (() -> Unit)? = null,
     onErrorCenterClick: (() -> Unit)? = null,
     onBatteryWizardClick: (() -> Unit)? = null,
+    onWebGuiClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -77,9 +84,31 @@ fun SettingsScreen(
     val schedulerEndHour by settingsStore.schedulerEndHour.collectAsStateWithLifecycle(initialValue = 6)
     val schedulerEndMinute by settingsStore.schedulerEndMinute.collectAsStateWithLifecycle(initialValue = 0)
     val notifyErrors by settingsStore.notifyErrors.collectAsStateWithLifecycle(initialValue = true)
+    val theme by settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
+    val biometricEnabled by settingsStore.biometricEnabled.collectAsStateWithLifecycle(initialValue = false)
     var query by rememberSaveable { mutableStateOf("") }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val json = settingsStore.exportToJson()
+            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val json = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: return@launch
+            settingsStore.importFromJson(json)
+        }
+    }
 
     val queryTrimmed = query.trim()
 
@@ -280,6 +309,63 @@ fun SettingsScreen(
                         label = { Text("Learn more") },
                         leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
                         modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+
+            // --- Appearance ---
+            if (queryTrimmed.isBlank() || "theme dark light appearance".contains(queryTrimmed, ignoreCase = true)) {
+                SectionHeader("Appearance")
+                SectionCard {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
+                        listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
+                            FilterChip(
+                                selected = theme == key,
+                                onClick = { scope.launch { settingsStore.setTheme(key) } },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            // --- Advanced ---
+            if (queryTrimmed.isBlank() || "advanced web gui config backup".contains(queryTrimmed, ignoreCase = true)) {
+                SectionHeader("Advanced")
+                SectionCard {
+                    if (onWebGuiClick != null) {
+                        ListItem(
+                            headlineContent = { Text("Open Web GUI") },
+                            supportingContent = { Text("Launch Syncthing Web GUI in browser") },
+                            modifier = Modifier.clickable { onWebGuiClick() },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                    }
+                    ListItem(
+                        headlineContent = { Text("Export settings") },
+                        supportingContent = { Text("Backup app preferences as JSON") },
+                        modifier = Modifier.clickable { exportLauncher.launch("syncthing-settings.json") },
+                        colors = transparentListItemColors(),
+                    )
+                    HorizontalDivider()
+                    ListItem(
+                        headlineContent = { Text("Import settings") },
+                        supportingContent = { Text("Restore app preferences from JSON") },
+                        modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json")) },
+                        colors = transparentListItemColors(),
+                    )
+                    HorizontalDivider()
+                    ListItem(
+                        headlineContent = { Text("App lock") },
+                        supportingContent = { Text("Require biometric or device credential") },
+                        trailingContent = {
+                            Switch(
+                                checked = biometricEnabled,
+                                onCheckedChange = { scope.launch { settingsStore.setBiometricEnabled(it) } },
+                            )
+                        },
+                        colors = transparentListItemColors(),
                     )
                 }
             }

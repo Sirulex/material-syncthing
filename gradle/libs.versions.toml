@@ -18,6 +18,9 @@ coroutines = "1.10.2"
 junit = "4.13.2"
 truth = "1.4.4"
 turbine = "1.2.0"
+biometric = "1.1.0"
+browser = "1.8.0"
+workmanager = "2.10.0"
 
 [libraries]
 # Compose BOM
@@ -63,6 +66,10 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 # QR
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode" }
+
+biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
+work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workmanager" }
 
 # Test
 junit = { group = "junit", name = "junit", version.ref = "junit" }

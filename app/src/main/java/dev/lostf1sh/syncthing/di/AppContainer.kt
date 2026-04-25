@@ -5,6 +5,7 @@ import dev.lostf1sh.syncthing.data.NotificationPolicy
 import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SyncConstraints
 import dev.lostf1sh.syncthing.native.NativeLauncher
+import dev.lostf1sh.syncthing.work.SchedulerWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -56,6 +57,12 @@ class AppContainer(private val appContext: Context) {
         appScope.launch {
             settingsStore.notifyErrors.collect {
                 notificationPolicy.notifyErrors = it
+            }
+        }
+        appScope.launch {
+            settingsStore.schedulerEnabled.collect { enabled ->
+                if (enabled) SchedulerWorker.enqueue(appContext)
+                else SchedulerWorker.cancel(appContext)
             }
         }
     }

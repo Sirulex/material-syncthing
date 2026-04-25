@@ -46,6 +46,7 @@ import dev.lostf1sh.syncthing.data.model.ConflictItem
 @Composable
 fun ConflictScreen(
     conflicts: List<ConflictItem>,
+    folderLabels: Map<String, String> = emptyMap(),
     onBack: () -> Unit,
     onKeepLocal: ((ConflictItem) -> Unit)? = null,
     onKeepRemote: ((ConflictItem) -> Unit)? = null,
@@ -95,6 +96,7 @@ fun ConflictScreen(
             items(conflicts, key = { "${it.folderId}/${it.path}" }) { conflict ->
                 ConflictCard(
                     conflict = conflict,
+                    folderLabel = folderLabels[conflict.folderId],
                     onKeepLocal = { onKeepLocal?.invoke(conflict) },
                     onKeepRemote = { onKeepRemote?.invoke(conflict) },
                     onDuplicate = { onDuplicate?.invoke(conflict) },
@@ -109,6 +111,7 @@ fun ConflictScreen(
 @Composable
 private fun ConflictCard(
     conflict: ConflictItem,
+    folderLabel: String?,
     onKeepLocal: () -> Unit,
     onKeepRemote: () -> Unit,
     onDuplicate: () -> Unit,
@@ -143,7 +146,7 @@ private fun ConflictCard(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Folder: ${conflict.folderId}",
+                "Folder: ${folderLabel ?: conflict.folderId}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

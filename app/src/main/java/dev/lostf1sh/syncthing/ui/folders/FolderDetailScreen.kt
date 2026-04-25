@@ -234,6 +234,20 @@ fun FolderDetailScreen(
                     Text("${status.localFiles} files, ${formatBytes(status.localBytes)}")
                 },
             )
+            if (status.globalBytes > 0) {
+                Spacer(Modifier.height(4.dp))
+                val storageProgress = (status.localBytes.toFloat() / status.globalBytes.toFloat()).coerceIn(0f, 1f)
+                LinearWavyProgressIndicator(
+                    progress = { storageProgress },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "${(storageProgress * 100).toInt()}% local — ${formatBytes(status.localBytes)} / ${formatBytes(status.globalBytes)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             if (status.needFiles > 0 || status.needBytes > 0) {
                 ListItem(
                     headlineContent = { Text("Out of Sync") },

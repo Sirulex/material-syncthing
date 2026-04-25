@@ -47,12 +47,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.api.dto.Device
+import dev.lostf1sh.syncthing.api.dto.Versioning
 import kotlinx.coroutines.launch
 
 private enum class EditFolderTypeOption(val wire: String, val label: String) {
     SendReceive("sendreceive", "Send & Receive"),
     SendOnly("sendonly", "Send Only"),
     ReceiveOnly("receiveonly", "Receive Only"),
+}
+
+private enum class VersioningTypeOption(val wire: String, val label: String) {
+    None("", "None"),
+    Trashcan("trashcan", "Trashcan"),
+    Simple("simple", "Simple"),
+    Staggered("staggered", "Staggered"),
+    External("external", "External"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -62,10 +71,11 @@ fun EditFolderScreen(
     initialLabel: String,
     initialPath: String,
     initialType: String,
+    initialVersioning: Versioning?,
     devices: List<Device>,
     localDeviceId: String?,
     initialSharedDeviceIds: Set<String>,
-    onSave: suspend (label: String, path: String, type: String, sharedDeviceIds: Set<String>) -> Result<Unit>,
+    onSave: suspend (label: String, path: String, type: String, sharedDeviceIds: Set<String>, versioning: Versioning?) -> Result<Unit>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -90,6 +100,24 @@ fun EditFolderScreen(
     var selectedDeviceIds by remember(initialSharedDeviceIds) {
         mutableStateOf(initialSharedDeviceIds)
     }
+    var selectedVersioning by remember(initialVersioning) {
+        mutableStateOf(
+            VersioningTypeOption.entries.firstOrNull { it.wire == initialVersioning?.type }
+                ?: VersioningTypeOption.None
+        )
+    }
+    var versioningCleanout by remember(initialVersioning) {
+        mutableStateOf(initialVersioning?.params?.get("cleanoutDays") ?: "0")
+    }
+    var versioningKeep by remember(initialVersioning) {
+        mutableStateOf(initialVersioning?.params?.get("keepVersions") ?: "5")
+    }
+    var versioningMaxAge by remember(initialVersioning) {
+        mutableStateOf(initialVersioning?.params?.get("maxAge") ?: "31536000")
+    }
+    var versioningCommand by remember(initialVersioning) {
+        mutableStateOf(initialVersioning?.params?.get("command") ?: "")
+    }
     var isLoading by remember { mutableStateOf(false) }
 
     val folderPicker = rememberLauncherForActivityResult(
@@ -108,6 +136,32 @@ fun EditFolderScreen(
     val pathValid = isAcceptableEditFolderPath(path)
     val hasSharedDevices = selectedDeviceIds.isNotEmpty() || !localDeviceId.isNullOrBlank()
     val formValid = pathValid && hasSharedDevices
+
+    val versioning = when (selectedVersioning) {
+        VersioningTypeOption.None -> null
+        VersioningTypeOption.Trashcan -> Versioning(
+            type = "trashcan",
+            params = mapOf("cleanoutDays" to versioningCleanout.filter { it.isDigit() }.ifEmpty { "0" }),
+        )
+        VersioningTypeOption.Simple -> Versioning(
+            type = "simple",
+            params = mapOf(
+                "keepVersions" to versioningKeep.filter { it.isDigit() }.ifEmpty { "5" },
+                "cleanoutDays" to versioningCleanout.filter { it.isDigit() }.ifEmpty { "0" },
+            ),
+        )
+        VersioningTypeOption.Staggered -> Versioning(
+            type = "staggered",
+            params = mapOf(
+                "maxAge" to versioningMaxAge.filter { it.isDigit() }.ifEmpty { "31536000" },
+                "cleanoutDays" to versioningCleanout.filter { it.isDigit() }.ifEmpty { "0" },
+            ),
+        )
+        VersioningTypeOption.External -> Versioning(
+            type = "external",
+            params = mapOf("command" to versioningCommand),
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -138,6 +192,7 @@ fun EditFolderScreen(
                                 path.trim(),
                                 selectedType.wire,
                                 selectedDeviceIds,
+                                versioning,
                             )
                             isLoading = false
                             result.fold(
@@ -261,6 +316,57 @@ fun EditFolderScreen(
                         )
                     },
                 )
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Text("Versioning", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(8.dp))
+            VersioningTypeOption.entries.forEach { option ->
+                FilterChip(
+                    selected = selectedVersioning == option,
+                    onClick = { selectedVersioning = option },
+                    label = { Text(option.label) },
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            if (selectedVersioning != VersioningTypeOption.None) {
+                if (selectedVersioning == VersioningTypeOption.External) {
+                    OutlinedTextField(
+                        value = versioningCommand,
+                        onValueChange = { versioningCommand = it },
+                        label = { Text("Command") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                } else {
+                    if (selectedVersioning != VersioningTypeOption.Staggered) {
+                        OutlinedTextField(
+                            value = versioningKeep,
+                            onValueChange = { versioningKeep = it.filter { ch -> ch.isDigit() } },
+                            label = { Text("Keep versions") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    if (selectedVersioning == VersioningTypeOption.Staggered) {
+                        OutlinedTextField(
+                            value = versioningMaxAge,
+                            onValueChange = { versioningMaxAge = it.filter { ch -> ch.isDigit() } },
+                            label = { Text("Max age (seconds)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    OutlinedTextField(
+                        value = versioningCleanout,
+                        onValueChange = { versioningCleanout = it.filter { ch -> ch.isDigit() } },
+                        label = { Text("Cleanout days (0 = never)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
             }
 
             Spacer(Modifier.height(80.dp))

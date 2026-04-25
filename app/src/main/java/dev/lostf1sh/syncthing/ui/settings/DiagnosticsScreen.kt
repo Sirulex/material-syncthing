@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -181,10 +182,61 @@ fun DiagnosticsScreen(
                 Text(if (exporting) "Exporting..." else "Export & Share")
             }
 
+            Spacer(Modifier.height(16.dp))
+            FilledTonalButton(
+                onClick = {
+                    scope.launch {
+                        val zipFile = exportConfigAndKeys(context)
+                        if (zipFile != null) {
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                zipFile,
+                            )
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/zip"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Config"))
+                        }
+                    }
+                },
+                shapes = ButtonDefaults.shapes(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.Save, null, Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                Text("Export config & keys")
+            }
+
             Spacer(Modifier.height(32.dp))
         }
     }
 }
+
+private suspend fun exportConfigAndKeys(context: android.content.Context): File? =
+    withContext(Dispatchers.IO) {
+        try {
+            val filesDir = context.filesDir
+            val outDir = File(context.cacheDir, "diagnostics")
+            outDir.mkdirs()
+            val zipFile = File(outDir, "syncthing-config.zip")
+            ZipOutputStream(FileOutputStream(zipFile)).use { zip ->
+                listOf("config.xml", "cert.pem", "key.pem").forEach { name ->
+                    val file = File(filesDir, name)
+                    if (file.exists()) {
+                        zip.putNextEntry(ZipEntry(name))
+                        file.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+            }
+            zipFile
+        } catch (e: Exception) {
+            null
+        }
+    }
 
 private suspend fun exportDiagnostics(
     context: android.content.Context,

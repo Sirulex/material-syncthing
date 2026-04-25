@@ -3,6 +3,12 @@ package dev.lostf1sh.syncthing.api.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class Versioning(
+    val type: String = "",
+    val params: Map<String, String> = emptyMap(),
+)
+
+@Serializable
 data class Folder(
     val id: String = "",
     val label: String = "",
@@ -18,6 +24,7 @@ data class Folder(
     val paused: Boolean = false,
     val ignoreDelete: Boolean = false,
     val maxConflicts: Int = 10,
+    val versioning: Versioning? = null,
 )
 
 @Serializable

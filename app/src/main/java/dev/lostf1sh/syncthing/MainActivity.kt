@@ -2,15 +2,18 @@ package dev.lostf1sh.syncthing
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dev.lostf1sh.syncthing.service.SyncthingService
 import dev.lostf1sh.syncthing.ui.core.theme.SyncthingTheme
@@ -19,7 +22,7 @@ import dev.lostf1sh.syncthing.ui.navigation.PendingShortcut
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val pendingShortcut = mutableStateOf<PendingShortcut?>(null)
 
@@ -38,8 +41,14 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            SyncthingTheme {
-                // Root Surface prevents window-bg flicker during nav / predictive back.
+            val app = applicationContext as SyncthingApp
+            val theme by app.container.settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
+            val darkTheme = when (theme) {
+                "light" -> false
+                "dark" -> true
+                else -> isSystemInDarkTheme()
+            }
+            SyncthingTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -61,6 +70,14 @@ class MainActivity : ComponentActivity() {
      */
     private fun handleIntent(intent: Intent?): Boolean {
         when (intent?.action) {
+            ACTION_SHORTCUT_START -> {
+                val serviceIntent = Intent(this, SyncthingService::class.java).apply {
+                    action = SyncthingService.ACTION_START
+                }
+                ContextCompat.startForegroundService(this, serviceIntent)
+                finish()
+                return true
+            }
             ACTION_SHORTCUT_RESCAN_ALL -> {
                 dispatchServiceControlShortcut(SyncthingService.ACTION_RESCAN_ALL)
                 finish()
@@ -137,6 +154,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        const val ACTION_SHORTCUT_START = "dev.lostf1sh.syncthing.shortcut.START"
         const val ACTION_SHORTCUT_RESCAN_ALL = "dev.lostf1sh.syncthing.shortcut.RESCAN_ALL"
         const val ACTION_SHORTCUT_PAUSE = "dev.lostf1sh.syncthing.shortcut.PAUSE"
         const val ACTION_SHORTCUT_ERROR_CENTER = "dev.lostf1sh.syncthing.shortcut.ERROR_CENTER"

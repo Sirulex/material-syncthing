@@ -35,6 +35,8 @@ import androidx.compose.material3.MediumExtendedFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.ripple
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -217,9 +219,13 @@ private fun FolderCard(
             ) {
                 // Expressive icon toggle for pause/resume
                 if (onTogglePause != null) {
+                    val haptic = LocalHapticFeedback.current
                     FilledIconToggleButton(
                         checked = !folder.paused,
-                        onCheckedChange = { onTogglePause(!it) },
+                        onCheckedChange = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onTogglePause(!it)
+                        },
                         shapes = IconButtonDefaults.toggleableShapes(),
                         modifier = Modifier.size(40.dp),
                     ) {
