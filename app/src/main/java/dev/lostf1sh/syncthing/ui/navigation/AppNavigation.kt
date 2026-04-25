@@ -3,7 +3,9 @@ package dev.lostf1sh.syncthing.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +58,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dev.lostf1sh.syncthing.ui.onboarding.OnboardingScreen
@@ -105,11 +108,22 @@ fun AppNavigation(
     val folderConditionsRaw by container.settingsStore.folderConditions.collectAsStateWithLifecycle(initialValue = "{}")
     val folderConditions = remember(folderConditionsRaw) { parseFolderConditions(folderConditionsRaw) }
     val theme by container.settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
-    val biometricEnabled by container.settingsStore.biometricEnabled.collectAsStateWithLifecycle(initialValue = false)
+    var biometricEnabledState by remember { mutableStateOf<Boolean?>(null) }
     var biometricUnlocked by remember { mutableStateOf(false) }
     var showLocalDeviceCode by remember { mutableStateOf(false) }
 
-    if (biometricEnabled && !biometricUnlocked) {
+    LaunchedEffect(Unit) {
+        biometricEnabledState = container.settingsStore.biometricEnabled.first()
+    }
+
+    if (biometricEnabledState == null) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = androidx.compose.material3.MaterialTheme.colorScheme.background,
+        ) {}
+        return
+    }
+    if (biometricEnabledState == true && !biometricUnlocked) {
         BiometricLockScreen(onUnlocked = { biometricUnlocked = true })
         return
     }
