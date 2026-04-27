@@ -144,7 +144,8 @@ class MainActivity : FragmentActivity() {
         val app = applicationContext as SyncthingApp
         lifecycleScope.launch {
             val done = app.container.settingsStore.onboardingComplete.first()
-            if (done) {
+            val startSuppressedByUser = app.container.settingsStore.startSuppressedByUser.first()
+            if (shouldAutoStartAfterOnboarding(done, startSuppressedByUser)) {
                 val intent = Intent(this@MainActivity, SyncthingService::class.java).apply {
                     action = SyncthingService.ACTION_START
                 }
@@ -161,3 +162,8 @@ class MainActivity : FragmentActivity() {
         const val ACTION_SHORTCUT_INSIGHTS = "dev.lostf1sh.syncthing.shortcut.INSIGHTS"
     }
 }
+
+internal fun shouldAutoStartAfterOnboarding(
+    onboardingComplete: Boolean,
+    startSuppressedByUser: Boolean,
+): Boolean = onboardingComplete && !startSuppressedByUser

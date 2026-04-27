@@ -34,21 +34,32 @@ class CollectorManager(
         const val TAG = "CollectorManager"
         const val DIAGNOSTIC_THROTTLE_MS = 5_000L
         const val BANDWIDTH_POLL_MS = 250L
+        const val CONFLICT_SCAN_DEBOUNCE_MS = 10_000L
+        const val CONFLICT_SCAN_MIN_INTERVAL_MS = 2 * 60_000L
     }
 
     private val lock = Any()
     private var collectorJob: Job? = null
+    private var conflictRefreshJob: Job? = null
     private var lastDiagnostic: String? = null
     private var lastDiagnosticAt: Long = 0
+    private var lastConflictScanAt: Long = 0
+    private var initialConflictScanRequested = false
 
     fun start(handles: ClientHandles) {
         collectorJob?.cancel()
+        cancelConflictRefresh()
+        initialConflictScanRequested = false
+        lastConflictScanAt = 0
         collectorJob = appScope.launch { runCollectors(handles) }
     }
 
     fun stop() {
         collectorJob?.cancel()
         collectorJob = null
+        cancelConflictRefresh()
+        initialConflictScanRequested = false
+        lastConflictScanAt = 0
         clearDiagnosticState()
     }
 
@@ -79,6 +90,9 @@ class CollectorManager(
             h.eventRepository.allFolderStates().collect { (folderId, state) ->
                 appState.updateFolderState(folderId, state)
                 enforceFolderConditions(h)
+                if (state == "idle" || state == "error") {
+                    scheduleConflictRefresh()
+                }
             }
         }
 
@@ -103,6 +117,7 @@ class CollectorManager(
         launch {
             h.eventRepository.configChanges().collect {
                 refreshConfig(h)
+                scheduleConflictRefresh(delayMs = 0)
             }
         }
 
@@ -117,6 +132,7 @@ class CollectorManager(
                         error = event.error,
                     )
                 )
+                scheduleConflictRefresh()
             }
         }
 
@@ -131,13 +147,6 @@ class CollectorManager(
             while (coroutineContext.isActive) {
                 refreshConnections(h)
                 delay(BANDWIDTH_POLL_MS)
-            }
-        }
-
-        launch(Dispatchers.IO) {
-            while (coroutineContext.isActive) {
-                refreshConflicts()
-                delay(30_000)
             }
         }
 
@@ -203,6 +212,35 @@ class CollectorManager(
             Log.i(TAG, "Syncthing API is reachable")
         }
         appState.setDiagnostic(null)
+    }
+
+    private fun cancelConflictRefresh() = synchronized(lock) {
+        conflictRefreshJob?.cancel()
+        conflictRefreshJob = null
+    }
+
+    private fun scheduleConflictRefresh(delayMs: Long = CONFLICT_SCAN_DEBOUNCE_MS) {
+        synchronized(lock) {
+            conflictRefreshJob?.cancel()
+            conflictRefreshJob = appScope.launch(Dispatchers.IO) {
+                val job = coroutineContext[Job]
+                val now = System.currentTimeMillis()
+                val remaining = synchronized(lock) {
+                    (lastConflictScanAt + CONFLICT_SCAN_MIN_INTERVAL_MS - now).coerceAtLeast(0L)
+                }
+                delay(maxOf(delayMs, remaining))
+                try {
+                    refreshConflicts()
+                } finally {
+                    synchronized(lock) {
+                        lastConflictScanAt = System.currentTimeMillis()
+                        if (conflictRefreshJob === job) {
+                            conflictRefreshJob = null
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun clearDiagnosticState(): Boolean = synchronized(lock) {
@@ -312,6 +350,10 @@ class CollectorManager(
             val devices = h.deviceRepository.devices()
             appState.setFolders(folders)
             appState.setDevices(devices)
+            if (!initialConflictScanRequested) {
+                initialConflictScanRequested = true
+                scheduleConflictRefresh(delayMs = 0)
+            }
             notificationPolicy.updateFolderLabels(folders.associate { it.id to it.label.ifBlank { it.id } })
             val systemStatus = h.systemRepository.status()
             appState.setSystemStatus(systemStatus)

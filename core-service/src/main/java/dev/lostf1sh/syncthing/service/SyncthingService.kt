@@ -101,15 +101,28 @@ class SyncthingService : Service() {
             ACTION_STOP -> {
                 pausedByConstraint = false
                 requestedPauseReason = null
-                stopSyncthing()
+                stopSyncthing(suppressFutureAutoStarts = true)
             }
 
             ACTION_PAUSE -> {
                 pausedByConstraint = false
-                pauseSyncthing("User requested pause")
+                pauseSyncthing(
+                    reason = "User requested pause",
+                    suppressFutureAutoStarts = true,
+                )
             }
 
             ACTION_RESCAN_ALL -> rescanAllFolders()
+
+            ACTION_START -> {
+                pausedByConstraint = false
+                requestedPauseReason = null
+                serviceScope.launch(Dispatchers.IO) {
+                    settings.setStartSuppressedByUser(false)
+                }
+                startSyncthing()
+            }
+
             else -> {
                 pausedByConstraint = false
                 requestedPauseReason = null
@@ -317,8 +330,11 @@ class SyncthingService : Service() {
         return ready == true
     }
 
-    private fun stopSyncthing() {
+    private fun stopSyncthing(suppressFutureAutoStarts: Boolean) {
         serviceScope.launch {
+            if (suppressFutureAutoStarts) {
+                settings.setStartSuppressedByUser(true)
+            }
             if (launcher.isRunning) {
                 launcher.stop()
             }
@@ -329,9 +345,12 @@ class SyncthingService : Service() {
         }
     }
 
-    private fun pauseSyncthing(reason: String) {
+    private fun pauseSyncthing(reason: String, suppressFutureAutoStarts: Boolean = false) {
         serviceScope.launch {
             requestedPauseReason = reason
+            if (suppressFutureAutoStarts) {
+                settings.setStartSuppressedByUser(true)
+            }
             if (launcher.isRunning) {
                 launcher.stop()
             }

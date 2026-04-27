@@ -59,4 +59,28 @@ class RouteOperationsTest {
         )
         assertThat(blockCalled).isTrue()
     }
+
+    @Test
+    fun `acceptPendingFolder fails when client is unavailable`() = runTest {
+        val result = acceptPendingFolder(
+            client = null,
+            folder = dev.lostf1sh.syncthing.api.dto.Folder(id = "docs"),
+            offeredByDeviceId = "device-a",
+        )
+
+        assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()).isInstanceOf(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `dismissPendingFolder fails when client is unavailable`() = runTest {
+        val result = dismissPendingFolder(
+            client = null,
+            folderId = "docs",
+            offeredByDeviceId = "device-a",
+        )
+
+        assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()).isInstanceOf(IllegalStateException::class.java)
+    }
 }

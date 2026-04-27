@@ -2,6 +2,7 @@ package dev.lostf1sh.syncthing.work
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -10,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SyncConstraints
+import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
@@ -24,19 +26,27 @@ class SchedulerWorker(
         val constraints = SyncConstraints(applicationContext)
         val enabled = settings.schedulerEnabled.first()
         if (!enabled) return Result.success()
+        val startSuppressedByUser = settings.startSuppressedByUser.first()
         val decision = constraints.observe(settings).first()
         val intent = Intent(applicationContext, SyncthingService::class.java)
-        when (decision) {
-            is SyncConstraints.ConstraintState.ShouldRun -> {
-                intent.action = SyncthingService.ACTION_START
-                ContextCompat.startForegroundService(applicationContext, intent)
+        return try {
+            when (decision) {
+                is SyncConstraints.ConstraintState.ShouldRun -> {
+                    if (startSuppressedByUser) return Result.success()
+                    intent.action = SyncthingService.ACTION_START
+                    ContextCompat.startForegroundService(applicationContext, intent)
+                }
+                is SyncConstraints.ConstraintState.ShouldPause -> {
+                    if (!shouldSchedulerIssuePause(SyncthingService.state.value)) return Result.success()
+                    intent.action = SyncthingService.ACTION_PAUSE
+                    applicationContext.startService(intent)
+                }
             }
-            is SyncConstraints.ConstraintState.ShouldPause -> {
-                intent.action = SyncthingService.ACTION_PAUSE
-                applicationContext.startService(intent)
-            }
+            Result.success()
+        } catch (e: Exception) {
+            Log.w("SchedulerWorker", "Could not apply scheduler decision", e)
+            Result.retry()
         }
-        return Result.success()
     }
 
     companion object {
@@ -57,3 +67,6 @@ class SchedulerWorker(
         }
     }
 }
+
+internal fun shouldSchedulerIssuePause(state: RunState): Boolean =
+    state is RunState.Running || state is RunState.Starting

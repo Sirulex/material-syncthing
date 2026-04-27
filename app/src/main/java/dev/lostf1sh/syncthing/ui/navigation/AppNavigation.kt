@@ -202,22 +202,28 @@ fun AppNavigation(
                             ),
                             offeredByDeviceId = pf.offeredByDevice,
                         )
-                        if (result.isFailure) {
+                        if (result.isSuccess) {
+                            dismissedOffers = dismissedOffers + pf.folderId
+                        } else {
                             val detail = result.exceptionOrNull()?.message ?: "Unknown error"
                             appState.setDiagnostic("Could not accept folder: $detail")
                         }
                     }
-                    dismissedOffers = dismissedOffers + pf.folderId
                 },
                 onDismiss = {
                     scope.launch {
-                        dismissPendingFolder(
+                        val result = dismissPendingFolder(
                             client = container.client,
                             folderId = pf.folderId,
                             offeredByDeviceId = pf.offeredByDevice,
                         )
+                        if (result.isSuccess) {
+                            dismissedOffers = dismissedOffers + pf.folderId
+                        } else {
+                            val detail = result.exceptionOrNull()?.message ?: "Unknown error"
+                            appState.setDiagnostic("Could not dismiss folder offer: $detail")
+                        }
                     }
-                    dismissedOffers = dismissedOffers + pf.folderId
                 },
             )
         }

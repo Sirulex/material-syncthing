@@ -59,6 +59,7 @@ class SettingsStore(private val context: Context) {
     // Advanced
     val guiPort: Flow<Int> = pref(Keys.GUI_PORT, 8384)
     val biometricEnabled: Flow<Boolean> = pref(Keys.BIOMETRIC_ENABLED, false)
+    val startSuppressedByUser: Flow<Boolean> = pref(Keys.START_SUPPRESSED_BY_USER, false)
 
     suspend fun setRunOnBoot(value: Boolean) = set(Keys.RUN_ON_BOOT, value)
     suspend fun setWifiOnly(value: Boolean) = set(Keys.WIFI_ONLY, value)
@@ -74,6 +75,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setActiveProfile(value: String) = set(Keys.ACTIVE_PROFILE, value)
     suspend fun setGuiPort(value: Int) = set(Keys.GUI_PORT, value)
     suspend fun setBiometricEnabled(value: Boolean) = set(Keys.BIOMETRIC_ENABLED, value)
+    suspend fun setStartSuppressedByUser(value: Boolean) = set(Keys.START_SUPPRESSED_BY_USER, value)
 
     suspend fun setSchedulerEnabled(value: Boolean) = set(Keys.SCHEDULER_ENABLED, value)
     suspend fun setSchedulerStartHour(value: Int) = set(Keys.SCHEDULER_START_HOUR, value)
@@ -120,6 +122,7 @@ class SettingsStore(private val context: Context) {
         val SCHEDULER_END_MINUTE = intPreferencesKey("scheduler_end_minute")
         val FOLDER_CONDITIONS = stringPreferencesKey("folder_conditions")
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
+        val START_SUPPRESSED_BY_USER = booleanPreferencesKey("start_suppressed_by_user")
     }
 
     /** Export all known preferences as JSON. */
@@ -146,6 +149,7 @@ class SettingsStore(private val context: Context) {
             put("scheduler_end_minute", prefs[Keys.SCHEDULER_END_MINUTE] ?: 0)
             put("folder_conditions", prefs[Keys.FOLDER_CONDITIONS] ?: "{}")
             put("biometric_enabled", prefs[Keys.BIOMETRIC_ENABLED] ?: false)
+            put("start_suppressed_by_user", prefs[Keys.START_SUPPRESSED_BY_USER] ?: false)
         }
         return kotlinx.serialization.json.Json.encodeToString(
             kotlinx.serialization.json.JsonObject.serializer(),
@@ -199,6 +203,9 @@ class SettingsStore(private val context: Context) {
             obj["scheduler_end_minute"]?.jsonPrimitive?.intOrNull?.let { prefs[Keys.SCHEDULER_END_MINUTE] = it }
             obj["folder_conditions"]?.jsonPrimitive?.contentOrNull?.let { prefs[Keys.FOLDER_CONDITIONS] = it }
             obj["biometric_enabled"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.BIOMETRIC_ENABLED] = it }
+            obj["start_suppressed_by_user"]?.jsonPrimitive?.booleanOrNull?.let {
+                prefs[Keys.START_SUPPRESSED_BY_USER] = it
+            }
         }
     }
 }

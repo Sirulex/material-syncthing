@@ -224,9 +224,12 @@ suspend fun acceptPendingFolder(
     folder: Folder,
     offeredByDeviceId: String,
 ): Result<Unit> {
+    if (client == null) {
+        return Result.failure(IllegalStateException("Syncthing service not running"))
+    }
     return try {
-        client?.addFolder(folder)
-        client?.dismissPendingFolder(folder.id, offeredByDeviceId)
+        client.addFolder(folder)
+        client.dismissPendingFolder(folder.id, offeredByDeviceId)
         Result.success(Unit)
     } catch (e: CancellationException) {
         throw e
@@ -243,8 +246,11 @@ suspend fun dismissPendingFolder(
     folderId: String,
     offeredByDeviceId: String,
 ): Result<Unit> {
+    if (client == null) {
+        return Result.failure(IllegalStateException("Syncthing service not running"))
+    }
     return try {
-        client?.dismissPendingFolder(folderId, offeredByDeviceId)
+        client.dismissPendingFolder(folderId, offeredByDeviceId)
         Result.success(Unit)
     } catch (e: CancellationException) {
         throw e
@@ -274,7 +280,9 @@ suspend fun fireAndForget(
         } else {
             // appState is not available; fall back to logcat so the failure is
             // never fully silent regardless of whether a diagnostic sink exists.
-            Log.w("RouteOperations", "${logTag ?: "fireAndForget"}: $detail", e)
+            runCatching {
+                Log.w("RouteOperations", "${logTag ?: "fireAndForget"}: $detail", e)
+            }
         }
     }
 }

@@ -33,9 +33,15 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                val startOnBoot = SettingsStore(context.applicationContext).runOnBoot.first()
+                val settings = SettingsStore(context.applicationContext)
+                val startOnBoot = settings.runOnBoot.first()
+                val startSuppressedByUser = settings.startSuppressedByUser.first()
                 if (!startOnBoot) {
                     Log.i(TAG, "Boot/update received; start-on-boot disabled")
+                    return@launch
+                }
+                if (startSuppressedByUser) {
+                    Log.i(TAG, "Boot/update received; startup suppressed by user")
                     return@launch
                 }
 
