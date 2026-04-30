@@ -1,10 +1,11 @@
 package dev.lostf1sh.syncthing.ui.home
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
@@ -44,12 +45,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -152,7 +150,9 @@ fun HomeScreen(
             ExpressiveHomeTabs(
                 selectedPage = pagerState.currentPage,
                 onPageSelected = { page ->
-                    scope.launch { pagerState.animateScrollToPage(page) }
+                    if (page != pagerState.currentPage && !pagerState.isScrollInProgress) {
+                        scope.launch { pagerState.animateScrollToPage(page) }
+                    }
                 },
             )
             HorizontalPager(
@@ -245,46 +245,24 @@ private fun ExpressiveHomeTab(
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val shape = RoundedCornerShape(50)
-    val scale = remember { Animatable(1f) }
-    val offsetX = remember { Animatable(0f) }
-    var hasAnimatedSelectionChange by remember { mutableStateOf(false) }
     val iconMotionSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
-    val scaleSpec = spring<Float>(
-        dampingRatio = Spring.DampingRatioLowBouncy,
-        stiffness = Spring.StiffnessLow,
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.02f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "tabScale",
     )
-    val offsetSpec = spring<Float>(
-        dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = Spring.StiffnessMedium,
+    val offsetX by animateFloatAsState(
+        targetValue = when {
+            selected -> 0f
+            abs(index - selectedPage) == 1 -> if (index > selectedPage) 3f else -3f
+            else -> 0f
+        },
+        animationSpec = tween(durationMillis = 220),
+        label = "tabOffsetX",
     )
-
-    LaunchedEffect(selectedPage) {
-        if (!hasAnimatedSelectionChange) {
-            hasAnimatedSelectionChange = true
-            scale.snapTo(1f)
-            offsetX.snapTo(0f)
-            return@LaunchedEffect
-        }
-        if (selected) {
-            launch {
-                scale.animateTo(1.035f, animationSpec = scaleSpec)
-                scale.animateTo(1f, animationSpec = scaleSpec)
-            }
-            launch { offsetX.animateTo(0f, animationSpec = offsetSpec) }
-        } else {
-            launch { scale.animateTo(1f, animationSpec = scaleSpec) }
-            val distance = index - selectedPage
-            if (abs(distance) == 1) {
-                val direction = if (distance > 0) 1f else -1f
-                launch {
-                    offsetX.animateTo(7f * direction, animationSpec = offsetSpec)
-                    offsetX.animateTo(0f, animationSpec = offsetSpec)
-                }
-            } else {
-                launch { offsetX.animateTo(0f, animationSpec = offsetSpec) }
-            }
-        }
-    }
 
     val containerColor by animateColorAsState(
         targetValue = if (selected) {
@@ -324,9 +302,9 @@ private fun ExpressiveHomeTab(
             .padding(5.dp)
             .height(52.dp)
             .graphicsLayer {
-                scaleX = scale.value
-                scaleY = scale.value
-                translationX = offsetX.value
+                scaleX = scale
+                scaleY = scale
+                translationX = offsetX
             }
             .clip(shape)
             .background(containerColor)
