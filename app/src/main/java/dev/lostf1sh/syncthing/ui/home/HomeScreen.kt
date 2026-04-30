@@ -2,7 +2,9 @@ package dev.lostf1sh.syncthing.ui.home
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
@@ -246,8 +248,15 @@ private fun ExpressiveHomeTab(
     val scale = remember { Animatable(1f) }
     val offsetX = remember { Animatable(0f) }
     var hasAnimatedSelectionChange by remember { mutableStateOf(false) }
-    val motionSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val iconMotionSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
+    val scaleSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessLow,
+    )
+    val offsetSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMedium,
+    )
 
     LaunchedEffect(selectedPage) {
         if (!hasAnimatedSelectionChange) {
@@ -258,21 +267,21 @@ private fun ExpressiveHomeTab(
         }
         if (selected) {
             launch {
-                scale.animateTo(1.05f, animationSpec = motionSpec)
-                scale.animateTo(1f, animationSpec = motionSpec)
+                scale.animateTo(1.035f, animationSpec = scaleSpec)
+                scale.animateTo(1f, animationSpec = scaleSpec)
             }
-            offsetX.snapTo(0f)
+            launch { offsetX.animateTo(0f, animationSpec = offsetSpec) }
         } else {
-            scale.snapTo(1f)
+            launch { scale.animateTo(1f, animationSpec = scaleSpec) }
             val distance = index - selectedPage
             if (abs(distance) == 1) {
                 val direction = if (distance > 0) 1f else -1f
                 launch {
-                    offsetX.animateTo(10f * direction, animationSpec = motionSpec)
-                    offsetX.animateTo(0f, animationSpec = motionSpec)
+                    offsetX.animateTo(7f * direction, animationSpec = offsetSpec)
+                    offsetX.animateTo(0f, animationSpec = offsetSpec)
                 }
             } else {
-                offsetX.snapTo(0f)
+                launch { offsetX.animateTo(0f, animationSpec = offsetSpec) }
             }
         }
     }

@@ -1,6 +1,9 @@
 package dev.lostf1sh.syncthing.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
@@ -233,8 +236,9 @@ fun AppNavigation(
 
     // Expressive predictive-back transitions — nav-compose drives progress
     // from the system back gesture when enableOnBackInvokedCallback=true.
-    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
-    val slideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val fadeInSpec = tween<Float>(durationMillis = 320, easing = LinearOutSlowInEasing)
+    val fadeOutSpec = tween<Float>(durationMillis = 260, easing = FastOutSlowInEasing)
+    val slideSpec = tween<IntOffset>(durationMillis = 420, easing = FastOutSlowInEasing)
     NavHost(
         navController = navController,
         startDestination = startDest,
@@ -242,27 +246,27 @@ fun AppNavigation(
             slideIntoContainer(
                 towards = SlideDirection.Start,
                 animationSpec = slideSpec,
-            ) + fadeIn(animationSpec = spatialSpec)
+            ) + fadeIn(animationSpec = fadeInSpec)
         },
         exitTransition = {
             slideOutOfContainer(
                 towards = SlideDirection.Start,
                 animationSpec = slideSpec,
                 targetOffset = { it / 6 },
-            ) + fadeOut(animationSpec = spatialSpec)
+            ) + fadeOut(animationSpec = fadeOutSpec)
         },
         popEnterTransition = {
             slideIntoContainer(
                 towards = SlideDirection.End,
                 animationSpec = slideSpec,
                 initialOffset = { it / 6 },
-            ) + fadeIn(animationSpec = spatialSpec)
+            ) + fadeIn(animationSpec = fadeInSpec)
         },
         popExitTransition = {
             slideOutOfContainer(
                 towards = SlideDirection.End,
                 animationSpec = slideSpec,
-            ) + fadeOut(animationSpec = spatialSpec)
+            ) + fadeOut(animationSpec = fadeOutSpec)
         },
     ) {
         composable<OnboardingRoute> {

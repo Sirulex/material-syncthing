@@ -11,6 +11,14 @@ import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -108,7 +116,24 @@ fun OnboardingScreen(
             Spacer(Modifier.height(24.dp))
 
             // Step content
-            AnimatedContent(targetState = step, label = "wizard") { currentStep ->
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    val movingForward = targetState > initialState
+                    (fadeIn(animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)) +
+                        slideInVertically(
+                            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                            initialOffsetY = { fullHeight -> if (movingForward) fullHeight / 6 else -fullHeight / 6 },
+                        )).togetherWith(
+                        fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
+                            slideOutVertically(
+                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                                targetOffsetY = { fullHeight -> if (movingForward) -fullHeight / 8 else fullHeight / 8 },
+                            )
+                    ).using(SizeTransform(clip = false))
+                },
+                label = "wizard",
+            ) { currentStep ->
                 when (currentStep) {
                     0 -> WelcomeStep()
                     1 -> PermissionsStep()
