@@ -57,7 +57,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(
-    settingsStore: SettingsStore?,
+    settingsStore: SettingsStore,
     onBack: () -> Unit,
     onProfilesClick: (() -> Unit)? = null,
     onDiagnosticsClick: (() -> Unit)? = null,
@@ -70,8 +70,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     // Collect all settings as state
-    val runOnBoot by settingsStore?.runOnBoot?.collectAsStateWithLifecycle(initialValue = false)
-        ?: return
+    val runOnBoot by settingsStore.runOnBoot.collectAsStateWithLifecycle(initialValue = false)
     val wifiOnly by settingsStore.wifiOnly.collectAsStateWithLifecycle(initialValue = false)
     val allowMetered by settingsStore.allowMetered.collectAsStateWithLifecycle(initialValue = true)
     val chargingOnly by settingsStore.chargingOnly.collectAsStateWithLifecycle(initialValue = false)

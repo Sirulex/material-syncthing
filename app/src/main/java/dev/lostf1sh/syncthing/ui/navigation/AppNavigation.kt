@@ -114,22 +114,12 @@ fun AppNavigation(
     val theme by container.settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
     // Collect continuously so that enabling/disabling biometric in Settings
     // takes effect immediately without requiring an app restart.
-    // initialValue = null acts as the "not yet loaded" sentinel that shows
-    // an empty Surface while the DataStore emits its first value.
-    val biometricEnabledState: Boolean? by remember {
-        container.settingsStore.biometricEnabled.map { it as Boolean? }
-    }.collectAsStateWithLifecycle(initialValue = null)
+    val biometricEnabledState by container.settingsStore.biometricEnabled
+        .collectAsStateWithLifecycle(initialValue = false)
     var biometricUnlocked by remember { mutableStateOf(false) }
     var showLocalDeviceCode by remember { mutableStateOf(false) }
 
-    if (biometricEnabledState == null) {
-        androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = androidx.compose.material3.MaterialTheme.colorScheme.background,
-        ) {}
-        return
-    }
-    if (biometricEnabledState == true && !biometricUnlocked) {
+    if (biometricEnabledState && !biometricUnlocked) {
         BiometricLockScreen(onUnlocked = { biometricUnlocked = true })
         return
     }
@@ -233,6 +223,21 @@ fun AppNavigation(
     }
 
     val startDest: Any = if (done) HomeRoute else OnboardingRoute
+    fun navigateOnce(route: Any) {
+        if (navController.currentDestination?.route == route.routeKey()) return
+        navController.navigate(route) {
+            launchSingleTop = true
+        }
+    }
+
+    fun popBackOrHome() {
+        if (!navController.popBackStack()) {
+            navController.navigate(HomeRoute) {
+                popUpTo(navController.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     // Expressive predictive-back transitions — nav-compose drives progress
     // from the system back gesture when enableOnBackInvokedCallback=true.
@@ -294,7 +299,7 @@ fun AppNavigation(
                 onAddDevice = { navController.navigate(AddDeviceRoute()) },
                 onScanQr = { navController.navigate(QrScannerRoute) },
                 onShowDeviceCode = { showLocalDeviceCode = true },
-                onSettingsClick = { navController.navigate(SettingsRoute) },
+                onSettingsClick = { navigateOnce(SettingsRoute) },
                 onOverviewClick = { navController.navigate(DiagnosticsRoute) },
                 onTogglePauseFolder = { folderId, paused ->
                     scope.launch {
@@ -965,11 +970,11 @@ fun AppNavigation(
             val guiPort by container.settingsStore.guiPort.collectAsStateWithLifecycle(initialValue = 8384)
             SettingsScreen(
                 settingsStore = container.settingsStore,
-                onBack = { navController.popBackStack() },
-                onProfilesClick = { navController.navigate(ProfilesRoute) },
-                onDiagnosticsClick = { navController.navigate(DiagnosticsRoute) },
-                onErrorCenterClick = { navController.navigate(ErrorCenterRoute) },
-                onBatteryWizardClick = { navController.navigate(BatteryWizardRoute) },
+                onBack = { popBackOrHome() },
+                onProfilesClick = { navigateOnce(ProfilesRoute) },
+                onDiagnosticsClick = { navigateOnce(DiagnosticsRoute) },
+                onErrorCenterClick = { navigateOnce(ErrorCenterRoute) },
+                onBatteryWizardClick = { navigateOnce(BatteryWizardRoute) },
                 onWebGuiClick = {
                     val url = "http://127.0.0.1:$guiPort"
                     CustomTabsIntent.Builder().build().launchUrl(context, android.net.Uri.parse(url))
@@ -991,3 +996,5 @@ fun AppNavigation(
         }
     }
 }
+
+private fun Any.routeKey(): String = this::class.qualifiedName.orEmpty()
