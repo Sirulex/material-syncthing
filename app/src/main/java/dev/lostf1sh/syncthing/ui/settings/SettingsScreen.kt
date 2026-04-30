@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -243,82 +243,86 @@ fun SettingsScreen(
 
             // --- Tools ---
             if (queryTrimmed.isBlank() || "tools profile diagnostics error language".contains(queryTrimmed, ignoreCase = true)) {
-                SectionHeader("Tools")
-                SectionCard {
-                    if (onProfilesClick != null) {
+                item(key = "tools") {
+                    SectionHeader("Tools")
+                    SectionCard {
+                        if (onProfilesClick != null) {
+                            ListItem(
+                                headlineContent = { Text("Sync Profiles") },
+                                supportingContent = { Text("Wi-Fi only, charging, night sync") },
+                                modifier = Modifier.clickable { onProfilesClick() },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
+                        if (onErrorCenterClick != null) {
+                            ListItem(
+                                headlineContent = { Text("Error Center") },
+                                supportingContent = { Text("View and resolve sync issues") },
+                                modifier = Modifier.clickable { onErrorCenterClick() },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
+                        if (onDiagnosticsClick != null) {
+                            ListItem(
+                                headlineContent = { Text("Diagnostics") },
+                                supportingContent = { Text("Export debug info for troubleshooting") },
+                                modifier = Modifier.clickable { onDiagnosticsClick() },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
+                        if (onBatteryWizardClick != null) {
+                            ListItem(
+                                headlineContent = { Text("Reliability") },
+                                supportingContent = { Text("Battery optimization + OEM autostart") },
+                                modifier = Modifier.clickable { onBatteryWizardClick() },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
+                        val context = androidx.compose.ui.platform.LocalContext.current
                         ListItem(
-                            headlineContent = { Text("Sync Profiles") },
-                            supportingContent = { Text("Wi-Fi only, charging, night sync") },
-                            modifier = Modifier.clickable { onProfilesClick() },
+                            headlineContent = { Text("Language") },
+                            supportingContent = { Text("App language / Uygulama dili") },
+                            modifier = Modifier.clickable {
+                                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                    val intent = android.content.Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS)
+                                        .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                                    try { context.startActivity(intent) } catch (_: Exception) { }
+                                } else {
+                                    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                        .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                                    try { context.startActivity(intent) } catch (_: Exception) { }
+                                }
+                            },
                             colors = transparentListItemColors(),
                         )
                         HorizontalDivider()
-                    }
-                    if (onErrorCenterClick != null) {
-                        ListItem(
-                            headlineContent = { Text("Error Center") },
-                            supportingContent = { Text("View and resolve sync issues") },
-                            modifier = Modifier.clickable { onErrorCenterClick() },
-                            colors = transparentListItemColors(),
+                        AssistChip(
+                            onClick = { onDiagnosticsClick?.invoke() },
+                            label = { Text("Learn more") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null) },
+                            modifier = Modifier.padding(16.dp),
                         )
-                        HorizontalDivider()
                     }
-                    if (onDiagnosticsClick != null) {
-                        ListItem(
-                            headlineContent = { Text("Diagnostics") },
-                            supportingContent = { Text("Export debug info for troubleshooting") },
-                            modifier = Modifier.clickable { onDiagnosticsClick() },
-                            colors = transparentListItemColors(),
-                        )
-                        HorizontalDivider()
-                    }
-                    if (onBatteryWizardClick != null) {
-                        ListItem(
-                            headlineContent = { Text("Reliability") },
-                            supportingContent = { Text("Battery optimization + OEM autostart") },
-                            modifier = Modifier.clickable { onBatteryWizardClick() },
-                            colors = transparentListItemColors(),
-                        )
-                        HorizontalDivider()
-                    }
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    ListItem(
-                        headlineContent = { Text("Language") },
-                        supportingContent = { Text("App language / Uygulama dili") },
-                        modifier = Modifier.clickable {
-                            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                                val intent = android.content.Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS)
-                                    .setData(android.net.Uri.fromParts("package", context.packageName, null))
-                                try { context.startActivity(intent) } catch (_: Exception) { }
-                            } else {
-                                val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                                    .setData(android.net.Uri.fromParts("package", context.packageName, null))
-                                try { context.startActivity(intent) } catch (_: Exception) { }
-                            }
-                        },
-                        colors = transparentListItemColors(),
-                    )
-                    HorizontalDivider()
-                    AssistChip(
-                        onClick = { onDiagnosticsClick?.invoke() },
-                        label = { Text("Learn more") },
-                        leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
-                        modifier = Modifier.padding(16.dp),
-                    )
                 }
             }
 
             // --- Appearance ---
             if (queryTrimmed.isBlank() || "theme dark light appearance".contains(queryTrimmed, ignoreCase = true)) {
-                SectionHeader("Appearance")
-                SectionCard {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
-                        listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
-                            FilterChip(
-                                selected = settings.theme == key,
-                                onClick = { scope.launch { settingsStore.setTheme(key) } },
-                                label = { Text(label) },
-                            )
+                item(key = "appearance") {
+                    SectionHeader("Appearance")
+                    SectionCard {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
+                            listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
+                                FilterChip(
+                                    selected = settings.theme == key,
+                                    onClick = { scope.launch { settingsStore.setTheme(key) } },
+                                    label = { Text(label) },
+                                )
+                            }
                         }
                     }
                 }
@@ -326,64 +330,68 @@ fun SettingsScreen(
 
             // --- Advanced ---
             if (queryTrimmed.isBlank() || "advanced web gui config backup".contains(queryTrimmed, ignoreCase = true)) {
-                SectionHeader("Advanced")
-                SectionCard {
-                    if (onWebGuiClick != null) {
+                item(key = "advanced") {
+                    SectionHeader("Advanced")
+                    SectionCard {
+                        if (onWebGuiClick != null) {
+                            ListItem(
+                                headlineContent = { Text("Open Web GUI") },
+                                supportingContent = { Text("Launch Syncthing Web GUI in browser") },
+                                modifier = Modifier.clickable { onWebGuiClick() },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
                         ListItem(
-                            headlineContent = { Text("Open Web GUI") },
-                            supportingContent = { Text("Launch Syncthing Web GUI in browser") },
-                            modifier = Modifier.clickable { onWebGuiClick() },
+                            headlineContent = { Text("Export settings") },
+                            supportingContent = { Text("Backup app preferences as JSON") },
+                            modifier = Modifier.clickable { exportLauncher.launch("syncthing-settings.json") },
                             colors = transparentListItemColors(),
                         )
                         HorizontalDivider()
+                        ListItem(
+                            headlineContent = { Text("Import settings") },
+                            supportingContent = { Text("Restore app preferences from JSON") },
+                            modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json")) },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                        ListItem(
+                            headlineContent = { Text("App lock") },
+                            supportingContent = { Text("Require biometric or device credential") },
+                            trailingContent = {
+                                Switch(
+                                    checked = settings.biometricEnabled,
+                                    onCheckedChange = { scope.launch { settingsStore.setBiometricEnabled(it) } },
+                                )
+                            },
+                            colors = transparentListItemColors(),
+                        )
                     }
-                    ListItem(
-                        headlineContent = { Text("Export settings") },
-                        supportingContent = { Text("Backup app preferences as JSON") },
-                        modifier = Modifier.clickable { exportLauncher.launch("syncthing-settings.json") },
-                        colors = transparentListItemColors(),
-                    )
-                    HorizontalDivider()
-                    ListItem(
-                        headlineContent = { Text("Import settings") },
-                        supportingContent = { Text("Restore app preferences from JSON") },
-                        modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json")) },
-                        colors = transparentListItemColors(),
-                    )
-                    HorizontalDivider()
-                    ListItem(
-                        headlineContent = { Text("App lock") },
-                        supportingContent = { Text("Require biometric or device credential") },
-                        trailingContent = {
-                            Switch(
-                                checked = settings.biometricEnabled,
-                                onCheckedChange = { scope.launch { settingsStore.setBiometricEnabled(it) } },
-                            )
-                        },
-                        colors = transparentListItemColors(),
-                    )
                 }
             }
 
             // --- About ---
             if (queryTrimmed.isBlank() || "about version license".contains(queryTrimmed, ignoreCase = true)) {
-                SectionHeader("About")
-                SectionCard {
-                    ListItem(
-                        headlineContent = { Text("Version") },
-                        supportingContent = { Text("0.1.0") },
-                        colors = transparentListItemColors(),
-                    )
-                    HorizontalDivider()
-                    ListItem(
-                        headlineContent = { Text("License") },
-                        supportingContent = { Text("MPL-2.0") },
-                        colors = transparentListItemColors(),
-                    )
+                item(key = "about") {
+                    SectionHeader("About")
+                    SectionCard {
+                        ListItem(
+                            headlineContent = { Text("Version") },
+                            supportingContent = { Text("0.1.0") },
+                            colors = transparentListItemColors(),
+                        )
+                        HorizontalDivider()
+                        ListItem(
+                            headlineContent = { Text("License") },
+                            supportingContent = { Text("MPL-2.0") },
+                            colors = transparentListItemColors(),
+                        )
+                    }
                 }
             }
 
-            Spacer(Modifier.height(32.dp))
+            item(key = "bottom-spacer") { Spacer(Modifier.height(32.dp)) }
         }
     }
 
