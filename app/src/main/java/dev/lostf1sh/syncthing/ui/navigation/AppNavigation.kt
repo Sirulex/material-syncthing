@@ -1,9 +1,6 @@
 package dev.lostf1sh.syncthing.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +52,7 @@ import dev.lostf1sh.syncthing.ui.errors.ErrorCenterScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
 import dev.lostf1sh.syncthing.ui.home.InsightsScreen
 import dev.lostf1sh.syncthing.ui.home.RecentChangesScreen
+import dev.lostf1sh.syncthing.ui.core.theme.SyncthingMotion
 import dev.lostf1sh.syncthing.ui.share.ShareTargetScreen
 import dev.lostf1sh.syncthing.ui.share.copyUrisToFolder
 import kotlinx.coroutines.CancellationException
@@ -76,7 +74,6 @@ import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.IntOffset
 
 @Composable
 fun AppNavigation(
@@ -163,11 +160,11 @@ fun AppNavigation(
     LaunchedEffect(shortcut, onboardingDone) {
         if (shortcut == null || onboardingDone != true) return@LaunchedEffect
         when (shortcut) {
-            PendingShortcut.ErrorCenter -> navController.navigate(ErrorCenterRoute)
-            PendingShortcut.Insights -> navController.navigate(InsightsRoute)
+            PendingShortcut.ErrorCenter -> navController.navigate(ErrorCenterRoute) { launchSingleTop = true }
+            PendingShortcut.Insights -> navController.navigate(InsightsRoute) { launchSingleTop = true }
             is PendingShortcut.Share -> {
                 incomingShareUris = shortcut.uris
-                navController.navigate(ShareTargetRoute)
+                navController.navigate(ShareTargetRoute) { launchSingleTop = true }
             }
         }
         pendingShortcut.value = null
@@ -259,37 +256,34 @@ fun AppNavigation(
 
     // Expressive predictive-back transitions — nav-compose drives progress
     // from the system back gesture when enableOnBackInvokedCallback=true.
-    val fadeInSpec = tween<Float>(durationMillis = 320, easing = LinearOutSlowInEasing)
-    val fadeOutSpec = tween<Float>(durationMillis = 260, easing = FastOutSlowInEasing)
-    val slideSpec = tween<IntOffset>(durationMillis = 420, easing = FastOutSlowInEasing)
     NavHost(
         navController = navController,
         startDestination = startDest,
         enterTransition = {
             slideIntoContainer(
                 towards = SlideDirection.Start,
-                animationSpec = slideSpec,
-            ) + fadeIn(animationSpec = fadeInSpec)
+                animationSpec = SyncthingMotion.navSlide,
+            ) + fadeIn(animationSpec = SyncthingMotion.navFadeIn)
         },
         exitTransition = {
             slideOutOfContainer(
                 towards = SlideDirection.Start,
-                animationSpec = slideSpec,
+                animationSpec = SyncthingMotion.navSlide,
                 targetOffset = { it / 6 },
-            ) + fadeOut(animationSpec = fadeOutSpec)
+            ) + fadeOut(animationSpec = SyncthingMotion.navFadeOut)
         },
         popEnterTransition = {
             slideIntoContainer(
                 towards = SlideDirection.End,
-                animationSpec = slideSpec,
+                animationSpec = SyncthingMotion.navSlide,
                 initialOffset = { it / 6 },
-            ) + fadeIn(animationSpec = fadeInSpec)
+            ) + fadeIn(animationSpec = SyncthingMotion.navFadeIn)
         },
         popExitTransition = {
             slideOutOfContainer(
                 towards = SlideDirection.End,
-                animationSpec = slideSpec,
-            ) + fadeOut(animationSpec = fadeOutSpec)
+                animationSpec = SyncthingMotion.navSlide,
+            ) + fadeOut(animationSpec = SyncthingMotion.navFadeOut)
         },
     ) {
         composable<OnboardingRoute> {
@@ -311,14 +305,14 @@ fun AppNavigation(
                 folderStatuses = folderStatuses,
                 devices = devices,
                 deviceConnections = deviceConnections,
-                onFolderClick = { navController.navigate(FolderRoute(it)) },
-                onAddFolder = { navController.navigate(AddFolderRoute) },
-                onDeviceClick = { navController.navigate(DeviceRoute(it)) },
-                onAddDevice = { navController.navigate(AddDeviceRoute()) },
-                onScanQr = { navController.navigate(QrScannerRoute) },
+                onFolderClick = { navigateOnce(FolderRoute(it)) },
+                onAddFolder = { navigateOnce(AddFolderRoute) },
+                onDeviceClick = { navigateOnce(DeviceRoute(it)) },
+                onAddDevice = { navigateOnce(AddDeviceRoute()) },
+                onScanQr = { navigateOnce(QrScannerRoute) },
                 onShowDeviceCode = { showLocalDeviceCode = true },
                 onSettingsClick = { navigateOnce(SettingsRoute) },
-                onOverviewClick = { navController.navigate(DiagnosticsRoute) },
+                onOverviewClick = { navigateOnce(DiagnosticsRoute) },
                 onTogglePauseFolder = { folderId, paused ->
                     scope.launch {
                         if (paused) {
@@ -365,8 +359,8 @@ fun AppNavigation(
                 diagnostic = diagnostic,
                 localDeviceId = localDeviceId,
                 bandwidth = bandwidth,
-                onInsightsClick = { navController.navigate(InsightsRoute) },
-                onRecentChangesClick = { navController.navigate(RecentChangesRoute) },
+                onInsightsClick = { navigateOnce(InsightsRoute) },
+                onRecentChangesClick = { navigateOnce(RecentChangesRoute) },
             )
         }
         composable<QrScannerRoute> {
@@ -500,7 +494,7 @@ fun AppNavigation(
                         repairFolderIndex(client, id, appState)
                     }
                 },
-                onEdit = { id -> navController.navigate(EditFolderRoute(id)) },
+                onEdit = { id -> navigateOnce(EditFolderRoute(id)) },
                 onRemove = { id ->
                     scope.launch {
                         fireAndForget(
@@ -513,7 +507,7 @@ fun AppNavigation(
                         )
                     }
                 },
-                onBrowse = { navController.navigate(FolderBrowserRoute(it)) },
+                onBrowse = { navigateOnce(FolderBrowserRoute(it)) },
                 wifiOnly = currentConditions?.wifiOnly ?: false,
                 chargingOnly = currentConditions?.chargingOnly ?: false,
                 onConditionsChanged = { wifi, charging ->
@@ -566,7 +560,7 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onRefresh = { load() },
                 onOpenDirectory = { newPrefix ->
-                    navController.navigate(FolderBrowserRoute(route.folderId, newPrefix))
+                    navigateOnce(FolderBrowserRoute(route.folderId, newPrefix))
                 },
                 onRescan = { sub ->
                     scope.launch {
@@ -595,7 +589,7 @@ fun AppNavigation(
                     }
                 },
                 onEditIgnores = {
-                    navController.navigate(IgnoreEditorRoute(route.folderId))
+                    navigateOnce(IgnoreEditorRoute(route.folderId))
                 },
             )
         }
@@ -769,7 +763,7 @@ fun AppNavigation(
                         )
                     }
                 },
-                onEdit = { id -> navController.navigate(EditDeviceRoute(id)) },
+                onEdit = { id -> navigateOnce(EditDeviceRoute(id)) },
                 onShareExistingFolders = { deviceId ->
                     scope.launch {
                         shareExistingFoldersWithDevice(
@@ -843,7 +837,7 @@ fun AppNavigation(
                         Result.failure(e)
                     }
                 },
-                onScanQr = { navController.navigate(QrScannerRoute) },
+                onScanQr = { navigateOnce(QrScannerRoute) },
                 onBack = { navController.popBackStack() },
             )
         }

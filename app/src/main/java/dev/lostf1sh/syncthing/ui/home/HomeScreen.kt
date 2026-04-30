@@ -1,11 +1,8 @@
 package dev.lostf1sh.syncthing.ui.home
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
@@ -70,6 +67,7 @@ import dev.lostf1sh.syncthing.data.model.SyncHealth
 import dev.lostf1sh.syncthing.service.SyncthingService
 import dev.lostf1sh.syncthing.ui.core.displayColor
 import dev.lostf1sh.syncthing.ui.core.displayLabelWithReason
+import dev.lostf1sh.syncthing.ui.core.theme.SyncthingMotion
 import dev.lostf1sh.syncthing.ui.devices.DevicesScreen
 import dev.lostf1sh.syncthing.ui.folders.FoldersScreen
 import kotlinx.coroutines.launch
@@ -248,10 +246,7 @@ private fun ExpressiveHomeTab(
     val iconMotionSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
     val scale by animateFloatAsState(
         targetValue = if (selected) 1.02f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow,
-        ),
+        animationSpec = SyncthingMotion.tabScale,
         label = "tabScale",
     )
     val offsetX by animateFloatAsState(
@@ -260,7 +255,7 @@ private fun ExpressiveHomeTab(
             abs(index - selectedPage) == 1 -> if (index > selectedPage) 3f else -3f
             else -> 0f
         },
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = SyncthingMotion.tabOffset,
         label = "tabOffsetX",
     )
 
