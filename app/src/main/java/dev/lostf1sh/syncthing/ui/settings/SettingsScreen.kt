@@ -8,8 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.HelpOutline
@@ -115,119 +114,130 @@ fun SettingsScreen(
         },
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(horizontal = 16.dp),
         ) {
-            TextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                placeholder = { Text("Search settings") },
-                singleLine = true,
-            )
+            item(key = "search") {
+                TextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    placeholder = { Text("Search settings") },
+                    singleLine = true,
+                )
+            }
 
             // --- Run Conditions ---
             if (queryTrimmed.isBlank() || "run conditions wifi battery boot".contains(queryTrimmed, ignoreCase = true)) {
-                SectionHeader("Run Conditions")
-                SectionCard {
-                    SettingsSwitch(
-                        title = "Start on boot",
-                        description = "Start Syncthing when device boots",
-                        checked = settings.runOnBoot,
-                        onCheckedChange = { scope.launch { settingsStore.setRunOnBoot(it) } },
-                    )
-                    HorizontalDivider()
-                    SettingsSwitch(
-                        title = "Wi-Fi only",
-                        description = "Only sync when connected to Wi-Fi",
-                        checked = settings.wifiOnly,
-                        onCheckedChange = { scope.launch { settingsStore.setWifiOnly(it) } },
-                    )
-                    if (settings.wifiOnly) {
+                item(key = "run-conditions") {
+                    SectionHeader("Run Conditions")
+                    SectionCard {
+                        SettingsSwitch(
+                            title = "Start on boot",
+                            description = "Start Syncthing when device boots",
+                            checked = settings.runOnBoot,
+                            onCheckedChange = { scope.launch { settingsStore.setRunOnBoot(it) } },
+                        )
                         HorizontalDivider()
                         SettingsSwitch(
-                            title = "Allow metered Wi-Fi",
-                            description = "Sync on metered Wi-Fi networks",
-                            checked = settings.allowMetered,
-                            onCheckedChange = { scope.launch { settingsStore.setAllowMetered(it) } },
+                            title = "Wi-Fi only",
+                            description = "Only sync when connected to Wi-Fi",
+                            checked = settings.wifiOnly,
+                            onCheckedChange = { scope.launch { settingsStore.setWifiOnly(it) } },
+                        )
+                        if (settings.wifiOnly) {
+                            HorizontalDivider()
+                            SettingsSwitch(
+                                title = "Allow metered Wi-Fi",
+                                description = "Sync on metered Wi-Fi networks",
+                                checked = settings.allowMetered,
+                                onCheckedChange = { scope.launch { settingsStore.setAllowMetered(it) } },
+                            )
+                        }
+                        HorizontalDivider()
+                        SettingsSwitch(
+                            title = "Charging only",
+                            description = "Only sync while charging",
+                            checked = settings.chargingOnly,
+                            onCheckedChange = { scope.launch { settingsStore.setChargingOnly(it) } },
+                        )
+                        HorizontalDivider()
+                        SettingsSwitch(
+                            title = "Respect battery saver",
+                            description = "Pause syncing when battery saver is active",
+                            checked = settings.respectBatterySaver,
+                            onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
                         )
                     }
-                    HorizontalDivider()
-                    SettingsSwitch(
-                        title = "Charging only",
-                        description = "Only sync while charging",
-                        checked = settings.chargingOnly,
-                        onCheckedChange = { scope.launch { settingsStore.setChargingOnly(it) } },
-                    )
-                    HorizontalDivider()
-                    SettingsSwitch(
-                        title = "Respect battery saver",
-                        description = "Pause syncing when battery saver is active",
-                        checked = settings.respectBatterySaver,
-                        onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
-                    )
                 }
             }
 
             // --- Scheduler ---
             if (queryTrimmed.isBlank() || "scheduler time schedule".contains(queryTrimmed, ignoreCase = true)) {
-                SectionHeader("Scheduler")
-                SectionCard {
-                    SettingsSwitch(
-                        title = "Enable time scheduler",
-                        description = "Only allow sync within set hours",
-                        checked = settings.schedulerEnabled,
-                        onCheckedChange = { scope.launch { settingsStore.setSchedulerEnabled(it) } },
-                    )
-                    if (settings.schedulerEnabled) {
-                        HorizontalDivider()
-                        ListItem(
-                            headlineContent = { Text("Start time") },
-                            supportingContent = { Text(formatClock(settings.schedulerStartHour, settings.schedulerStartMinute)) },
-                            modifier = Modifier.clickable { showStartPicker = true },
-                            colors = transparentListItemColors(),
+                item(key = "scheduler") {
+                    SectionHeader("Scheduler")
+                    SectionCard {
+                        SettingsSwitch(
+                            title = "Enable time scheduler",
+                            description = "Only allow sync within set hours",
+                            checked = settings.schedulerEnabled,
+                            onCheckedChange = { scope.launch { settingsStore.setSchedulerEnabled(it) } },
                         )
-                        HorizontalDivider()
-                        ListItem(
-                            headlineContent = { Text("End time") },
-                            supportingContent = { Text(formatClock(settings.schedulerEndHour, settings.schedulerEndMinute)) },
-                            modifier = Modifier.clickable { showEndPicker = true },
-                            colors = transparentListItemColors(),
-                        )
+                        if (settings.schedulerEnabled) {
+                            HorizontalDivider()
+                            ListItem(
+                                headlineContent = { Text("Start time") },
+                                supportingContent = {
+                                    Text(formatClock(settings.schedulerStartHour, settings.schedulerStartMinute))
+                                },
+                                modifier = Modifier.clickable { showStartPicker = true },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                            ListItem(
+                                headlineContent = { Text("End time") },
+                                supportingContent = {
+                                    Text(formatClock(settings.schedulerEndHour, settings.schedulerEndMinute))
+                                },
+                                modifier = Modifier.clickable { showEndPicker = true },
+                                colors = transparentListItemColors(),
+                            )
+                        }
                     }
                 }
             }
 
             // --- Notifications ---
             if (queryTrimmed.isBlank() || "notification".contains(queryTrimmed, ignoreCase = true)) {
-                SectionHeader("Notifications")
-                SectionCard {
-                    SettingsSwitch(
-                        title = "Sync complete",
-                        description = "Notify when folder finishes syncing",
-                        checked = settings.notifySyncComplete,
-                        onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
-                    )
-                    HorizontalDivider()
-                    SettingsSwitch(
-                        title = "Device connected",
-                        description = "Notify when device connects",
-                        checked = settings.notifyDeviceConnected,
-                        onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
-                    )
-                    HorizontalDivider()
-                    SettingsSwitch(
-                        title = "Errors",
-                        description = "Notify on sync errors",
-                        checked = settings.notifyErrors,
-                        onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
-                    )
+                item(key = "notifications") {
+                    SectionHeader("Notifications")
+                    SectionCard {
+                        SettingsSwitch(
+                            title = "Sync complete",
+                            description = "Notify when folder finishes syncing",
+                            checked = settings.notifySyncComplete,
+                            onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
+                        )
+                        HorizontalDivider()
+                        SettingsSwitch(
+                            title = "Device connected",
+                            description = "Notify when device connects",
+                            checked = settings.notifyDeviceConnected,
+                            onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
+                        )
+                        HorizontalDivider()
+                        SettingsSwitch(
+                            title = "Errors",
+                            description = "Notify on sync errors",
+                            checked = settings.notifyErrors,
+                            onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
+                        )
+                    }
                 }
             }
 
