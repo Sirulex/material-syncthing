@@ -52,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.data.SettingsStore
+import dev.lostf1sh.syncthing.data.SettingsUiState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -69,22 +70,7 @@ fun SettingsScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
 
-    // Collect all settings as state
-    val runOnBoot by settingsStore.runOnBoot.collectAsStateWithLifecycle(initialValue = false)
-    val wifiOnly by settingsStore.wifiOnly.collectAsStateWithLifecycle(initialValue = false)
-    val allowMetered by settingsStore.allowMetered.collectAsStateWithLifecycle(initialValue = true)
-    val chargingOnly by settingsStore.chargingOnly.collectAsStateWithLifecycle(initialValue = false)
-    val respectBatterySaver by settingsStore.respectBatterySaver.collectAsStateWithLifecycle(initialValue = true)
-    val notifySyncComplete by settingsStore.notifySyncComplete.collectAsStateWithLifecycle(initialValue = true)
-    val notifyDeviceConnected by settingsStore.notifyDeviceConnected.collectAsStateWithLifecycle(initialValue = false)
-    val schedulerEnabled by settingsStore.schedulerEnabled.collectAsStateWithLifecycle(initialValue = false)
-    val schedulerStartHour by settingsStore.schedulerStartHour.collectAsStateWithLifecycle(initialValue = 23)
-    val schedulerStartMinute by settingsStore.schedulerStartMinute.collectAsStateWithLifecycle(initialValue = 0)
-    val schedulerEndHour by settingsStore.schedulerEndHour.collectAsStateWithLifecycle(initialValue = 6)
-    val schedulerEndMinute by settingsStore.schedulerEndMinute.collectAsStateWithLifecycle(initialValue = 0)
-    val notifyErrors by settingsStore.notifyErrors.collectAsStateWithLifecycle(initialValue = true)
-    val theme by settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
-    val biometricEnabled by settingsStore.biometricEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val settings by settingsStore.settingsUiState.collectAsStateWithLifecycle(initialValue = SettingsUiState())
     var query by rememberSaveable { mutableStateOf("") }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
@@ -153,22 +139,22 @@ fun SettingsScreen(
                     SettingsSwitch(
                         title = "Start on boot",
                         description = "Start Syncthing when device boots",
-                        checked = runOnBoot,
+                        checked = settings.runOnBoot,
                         onCheckedChange = { scope.launch { settingsStore.setRunOnBoot(it) } },
                     )
                     HorizontalDivider()
                     SettingsSwitch(
                         title = "Wi-Fi only",
                         description = "Only sync when connected to Wi-Fi",
-                        checked = wifiOnly,
+                        checked = settings.wifiOnly,
                         onCheckedChange = { scope.launch { settingsStore.setWifiOnly(it) } },
                     )
-                    if (wifiOnly) {
+                    if (settings.wifiOnly) {
                         HorizontalDivider()
                         SettingsSwitch(
                             title = "Allow metered Wi-Fi",
                             description = "Sync on metered Wi-Fi networks",
-                            checked = allowMetered,
+                            checked = settings.allowMetered,
                             onCheckedChange = { scope.launch { settingsStore.setAllowMetered(it) } },
                         )
                     }
@@ -176,14 +162,14 @@ fun SettingsScreen(
                     SettingsSwitch(
                         title = "Charging only",
                         description = "Only sync while charging",
-                        checked = chargingOnly,
+                        checked = settings.chargingOnly,
                         onCheckedChange = { scope.launch { settingsStore.setChargingOnly(it) } },
                     )
                     HorizontalDivider()
                     SettingsSwitch(
                         title = "Respect battery saver",
                         description = "Pause syncing when battery saver is active",
-                        checked = respectBatterySaver,
+                        checked = settings.respectBatterySaver,
                         onCheckedChange = { scope.launch { settingsStore.setRespectBatterySaver(it) } },
                     )
                 }
@@ -196,21 +182,21 @@ fun SettingsScreen(
                     SettingsSwitch(
                         title = "Enable time scheduler",
                         description = "Only allow sync within set hours",
-                        checked = schedulerEnabled,
+                        checked = settings.schedulerEnabled,
                         onCheckedChange = { scope.launch { settingsStore.setSchedulerEnabled(it) } },
                     )
-                    if (schedulerEnabled) {
+                    if (settings.schedulerEnabled) {
                         HorizontalDivider()
                         ListItem(
                             headlineContent = { Text("Start time") },
-                            supportingContent = { Text(formatClock(schedulerStartHour, schedulerStartMinute)) },
+                            supportingContent = { Text(formatClock(settings.schedulerStartHour, settings.schedulerStartMinute)) },
                             modifier = Modifier.clickable { showStartPicker = true },
                             colors = transparentListItemColors(),
                         )
                         HorizontalDivider()
                         ListItem(
                             headlineContent = { Text("End time") },
-                            supportingContent = { Text(formatClock(schedulerEndHour, schedulerEndMinute)) },
+                            supportingContent = { Text(formatClock(settings.schedulerEndHour, settings.schedulerEndMinute)) },
                             modifier = Modifier.clickable { showEndPicker = true },
                             colors = transparentListItemColors(),
                         )
@@ -225,21 +211,21 @@ fun SettingsScreen(
                     SettingsSwitch(
                         title = "Sync complete",
                         description = "Notify when folder finishes syncing",
-                        checked = notifySyncComplete,
+                        checked = settings.notifySyncComplete,
                         onCheckedChange = { scope.launch { settingsStore.setNotifySyncComplete(it) } },
                     )
                     HorizontalDivider()
                     SettingsSwitch(
                         title = "Device connected",
                         description = "Notify when device connects",
-                        checked = notifyDeviceConnected,
+                        checked = settings.notifyDeviceConnected,
                         onCheckedChange = { scope.launch { settingsStore.setNotifyDeviceConnected(it) } },
                     )
                     HorizontalDivider()
                     SettingsSwitch(
                         title = "Errors",
                         description = "Notify on sync errors",
-                        checked = notifyErrors,
+                        checked = settings.notifyErrors,
                         onCheckedChange = { scope.launch { settingsStore.setNotifyErrors(it) } },
                     )
                 }
@@ -319,7 +305,7 @@ fun SettingsScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
                         listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
                             FilterChip(
-                                selected = theme == key,
+                                selected = settings.theme == key,
                                 onClick = { scope.launch { settingsStore.setTheme(key) } },
                                 label = { Text(label) },
                             )
@@ -360,7 +346,7 @@ fun SettingsScreen(
                         supportingContent = { Text("Require biometric or device credential") },
                         trailingContent = {
                             Switch(
-                                checked = biometricEnabled,
+                                checked = settings.biometricEnabled,
                                 onCheckedChange = { scope.launch { settingsStore.setBiometricEnabled(it) } },
                             )
                         },
@@ -394,8 +380,8 @@ fun SettingsScreen(
     if (showStartPicker) {
         SchedulerTimePickerDialog(
             title = "Select start time",
-            initialHour = schedulerStartHour,
-            initialMinute = schedulerStartMinute,
+            initialHour = settings.schedulerStartHour,
+            initialMinute = settings.schedulerStartMinute,
             onDismiss = { showStartPicker = false },
             onConfirm = { hour, minute ->
                 scope.launch {
@@ -409,8 +395,8 @@ fun SettingsScreen(
     if (showEndPicker) {
         SchedulerTimePickerDialog(
             title = "Select end time",
-            initialHour = schedulerEndHour,
-            initialMinute = schedulerEndMinute,
+            initialHour = settings.schedulerEndHour,
+            initialMinute = settings.schedulerEndMinute,
             onDismiss = { showEndPicker = false },
             onConfirm = { hour, minute ->
                 scope.launch {

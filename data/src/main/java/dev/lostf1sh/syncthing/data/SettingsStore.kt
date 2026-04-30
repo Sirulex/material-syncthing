@@ -22,6 +22,24 @@ import kotlinx.serialization.json.contentOrNull
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
+data class SettingsUiState(
+    val runOnBoot: Boolean = false,
+    val wifiOnly: Boolean = false,
+    val allowMetered: Boolean = true,
+    val chargingOnly: Boolean = false,
+    val respectBatterySaver: Boolean = true,
+    val notifySyncComplete: Boolean = true,
+    val notifyDeviceConnected: Boolean = false,
+    val schedulerEnabled: Boolean = false,
+    val schedulerStartHour: Int = 23,
+    val schedulerStartMinute: Int = 0,
+    val schedulerEndHour: Int = 6,
+    val schedulerEndMinute: Int = 0,
+    val notifyErrors: Boolean = true,
+    val theme: String = "system",
+    val biometricEnabled: Boolean = false,
+)
+
 class SettingsStore(private val context: Context) {
 
     // Run conditions
@@ -60,6 +78,25 @@ class SettingsStore(private val context: Context) {
     val guiPort: Flow<Int> = pref(Keys.GUI_PORT, 8384)
     val biometricEnabled: Flow<Boolean> = pref(Keys.BIOMETRIC_ENABLED, false)
     val startSuppressedByUser: Flow<Boolean> = pref(Keys.START_SUPPRESSED_BY_USER, false)
+    val settingsUiState: Flow<SettingsUiState> = context.dataStore.data.map { prefs ->
+        SettingsUiState(
+            runOnBoot = prefs[Keys.RUN_ON_BOOT] ?: false,
+            wifiOnly = prefs[Keys.WIFI_ONLY] ?: false,
+            allowMetered = prefs[Keys.ALLOW_METERED] ?: true,
+            chargingOnly = prefs[Keys.CHARGING_ONLY] ?: false,
+            respectBatterySaver = prefs[Keys.RESPECT_BATTERY_SAVER] ?: true,
+            notifySyncComplete = prefs[Keys.NOTIFY_SYNC_COMPLETE] ?: true,
+            notifyDeviceConnected = prefs[Keys.NOTIFY_DEVICE_CONNECTED] ?: false,
+            schedulerEnabled = prefs[Keys.SCHEDULER_ENABLED] ?: false,
+            schedulerStartHour = prefs[Keys.SCHEDULER_START_HOUR] ?: 23,
+            schedulerStartMinute = prefs[Keys.SCHEDULER_START_MINUTE] ?: 0,
+            schedulerEndHour = prefs[Keys.SCHEDULER_END_HOUR] ?: 6,
+            schedulerEndMinute = prefs[Keys.SCHEDULER_END_MINUTE] ?: 0,
+            notifyErrors = prefs[Keys.NOTIFY_ERRORS] ?: true,
+            theme = prefs[Keys.THEME] ?: "system",
+            biometricEnabled = prefs[Keys.BIOMETRIC_ENABLED] ?: false,
+        )
+    }
 
     suspend fun setRunOnBoot(value: Boolean) = set(Keys.RUN_ON_BOOT, value)
     suspend fun setWifiOnly(value: Boolean) = set(Keys.WIFI_ONLY, value)
