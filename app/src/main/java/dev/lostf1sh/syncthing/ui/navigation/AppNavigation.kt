@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navDeepLink
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
@@ -82,6 +83,7 @@ fun AppNavigation(
     pendingShortcut: androidx.compose.runtime.MutableState<PendingShortcut?>? = null,
 ) {
     val navController = rememberNavController()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val scope = rememberCoroutineScope()
     val serviceState by SyncthingService.state.collectAsStateWithLifecycle()
     val app = LocalContext.current.applicationContext as SyncthingApp
@@ -118,6 +120,11 @@ fun AppNavigation(
         .collectAsStateWithLifecycle(initialValue = false)
     var biometricUnlocked by remember { mutableStateOf(false) }
     var showLocalDeviceCode by remember { mutableStateOf(false) }
+    var navigationLocked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentBackStackEntry?.destination?.route) {
+        navigationLocked = false
+    }
 
     if (biometricEnabledState && !biometricUnlocked) {
         BiometricLockScreen(onUnlocked = { biometricUnlocked = true })
@@ -224,13 +231,16 @@ fun AppNavigation(
 
     val startDest: Any = if (done) HomeRoute else OnboardingRoute
     fun navigateOnce(route: Any) {
-        if (navController.currentDestination?.route == route.routeKey()) return
+        if (navigationLocked || navController.currentDestination?.route == route.routeKey()) return
+        navigationLocked = true
         navController.navigate(route) {
             launchSingleTop = true
         }
     }
 
     fun popBackOrHome() {
+        if (navigationLocked) return
+        navigationLocked = true
         if (!navController.popBackStack()) {
             navController.navigate(HomeRoute) {
                 popUpTo(navController.graph.id) { inclusive = true }
