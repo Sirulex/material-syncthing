@@ -131,6 +131,14 @@ fun AppNavigation(
         return
     }
 
+    if (onboardingDone == null) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = androidx.compose.material3.MaterialTheme.colorScheme.background,
+        ) {}
+        return
+    }
+
     if (showLocalDeviceCode) {
         ShowQrDialog(
             deviceId = localDeviceId.orEmpty(),
