@@ -24,6 +24,10 @@ core-native/src/main/jniLibs/
 # Kotlin
 *.class
 
+#Keystore files
+*.jks
+*.jks.base64
+
 # OS
 .DS_Store
 Thumbs.db
