@@ -74,12 +74,10 @@ fun AcceptFolderDialog(
     ) { uri: Uri? ->
         uri?.let {
             val docId = DocumentsContract.getTreeDocumentId(it)
-            val path = if (docId.startsWith("primary:")) {
-                "${Environment.getExternalStorageDirectory().absolutePath}/${docId.removePrefix("primary:")}"
-            } else {
-                docId
-            }
-            selectedPath = path
+            documentTreePath(
+                docId,
+                Environment.getExternalStorageDirectory().absolutePath,
+            )?.let { path -> selectedPath = path }
         }
     }
 

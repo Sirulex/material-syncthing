@@ -110,7 +110,11 @@ fun EditFolderScreen(
         mutableStateOf(initialVersioning?.params?.get("cleanoutDays") ?: "0")
     }
     var versioningKeep by remember(initialVersioning) {
-        mutableStateOf(initialVersioning?.params?.get("keepVersions") ?: "5")
+        mutableStateOf(
+            initialVersioning?.params?.get("keep")
+                ?: initialVersioning?.params?.get("keepVersions")
+                ?: "5"
+        )
     }
     var versioningMaxAge by remember(initialVersioning) {
         mutableStateOf(initialVersioning?.params?.get("maxAge") ?: "31536000")
@@ -125,41 +129,52 @@ fun EditFolderScreen(
     ) { uri: Uri? ->
         uri?.let {
             val docId = DocumentsContract.getTreeDocumentId(it)
-            path = if (docId.startsWith("primary:")) {
-                "${Environment.getExternalStorageDirectory().absolutePath}/${docId.removePrefix("primary:")}"
-            } else {
-                docId
-            }
+            documentTreePath(
+                docId,
+                Environment.getExternalStorageDirectory().absolutePath,
+            )?.let { resolved -> path = resolved }
         }
     }
 
     val pathValid = isAcceptableEditFolderPath(path)
     val hasSharedDevices = selectedDeviceIds.isNotEmpty() || !localDeviceId.isNullOrBlank()
-    val formValid = pathValid && hasSharedDevices
+    val cleanoutValid = versioningCleanout.toIntOrNull()?.let { it >= 0 } == true
+    val versioningValid = when (selectedVersioning) {
+        VersioningTypeOption.None -> true
+        VersioningTypeOption.Trashcan -> cleanoutValid
+        VersioningTypeOption.Simple -> cleanoutValid && (versioningKeep.toIntOrNull() ?: 0) > 0
+        VersioningTypeOption.Staggered -> cleanoutValid &&
+            versioningMaxAge.toLongOrNull()?.let { it >= 0 } == true
+        VersioningTypeOption.External -> versioningCommand.isNotBlank()
+    }
+    val formValid = pathValid && hasSharedDevices && versioningValid
+
+    fun versioningWith(type: String, params: Map<String, String>): Versioning =
+        (initialVersioning ?: Versioning()).copy(type = type, params = params)
 
     val versioning = when (selectedVersioning) {
         VersioningTypeOption.None -> null
-        VersioningTypeOption.Trashcan -> Versioning(
-            type = "trashcan",
-            params = mapOf("cleanoutDays" to versioningCleanout.filter { it.isDigit() }.ifEmpty { "0" }),
+        VersioningTypeOption.Trashcan -> versioningWith(
+            "trashcan",
+            mapOf("cleanoutDays" to versioningCleanout.ifEmpty { "0" }),
         )
-        VersioningTypeOption.Simple -> Versioning(
-            type = "simple",
+        VersioningTypeOption.Simple -> versioningWith(
+            "simple",
             params = mapOf(
-                "keepVersions" to versioningKeep.filter { it.isDigit() }.ifEmpty { "5" },
-                "cleanoutDays" to versioningCleanout.filter { it.isDigit() }.ifEmpty { "0" },
+                "keep" to versioningKeep.ifEmpty { "5" },
+                "cleanoutDays" to versioningCleanout.ifEmpty { "0" },
             ),
         )
-        VersioningTypeOption.Staggered -> Versioning(
-            type = "staggered",
+        VersioningTypeOption.Staggered -> versioningWith(
+            "staggered",
             params = mapOf(
-                "maxAge" to versioningMaxAge.filter { it.isDigit() }.ifEmpty { "31536000" },
-                "cleanoutDays" to versioningCleanout.filter { it.isDigit() }.ifEmpty { "0" },
+                "maxAge" to versioningMaxAge.ifEmpty { "31536000" },
+                "cleanoutDays" to versioningCleanout.ifEmpty { "0" },
             ),
         )
-        VersioningTypeOption.External -> Versioning(
-            type = "external",
-            params = mapOf("command" to versioningCommand),
+        VersioningTypeOption.External -> versioningWith(
+            "external",
+            mapOf("command" to versioningCommand.trim()),
         )
     }
 
@@ -335,15 +350,21 @@ fun EditFolderScreen(
                         value = versioningCommand,
                         onValueChange = { versioningCommand = it },
                         label = { Text("Command") },
+                        isError = versioningCommand.isBlank(),
+                        supportingText = {
+                            Text("Executable command using %FOLDER_PATH% and %FILE_PATH% if needed")
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
                 } else {
-                    if (selectedVersioning != VersioningTypeOption.Staggered) {
+                    if (selectedVersioning == VersioningTypeOption.Simple) {
                         OutlinedTextField(
                             value = versioningKeep,
                             onValueChange = { versioningKeep = it.filter { ch -> ch.isDigit() } },
                             label = { Text("Keep versions") },
+                            isError = versioningKeep.toIntOrNull()?.let { it <= 0 } ?: true,
+                            supportingText = { Text("Must be at least 1") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                         )
@@ -363,6 +384,8 @@ fun EditFolderScreen(
                         value = versioningCleanout,
                         onValueChange = { versioningCleanout = it.filter { ch -> ch.isDigit() } },
                         label = { Text("Cleanout days (0 = never)") },
+                        isError = !cleanoutValid,
+                        supportingText = { Text("Enter a whole number of days") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )

@@ -31,6 +31,8 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -52,7 +54,11 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SettingsUiState
+import dev.lostf1sh.syncthing.BuildConfig
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -64,15 +70,20 @@ fun SettingsScreen(
     onErrorCenterClick: (() -> Unit)? = null,
     onBatteryWizardClick: (() -> Unit)? = null,
     onWebGuiClick: (() -> Unit)? = null,
+    onConnectivityClick: (() -> Unit)? = null,
+    onCreateConfigurationBackup: (suspend () -> Result<String>)? = null,
+    onRestoreConfigurationBackup: (suspend (String) -> Result<Unit>)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val settings by settingsStore.settingsUiState.collectAsStateWithLifecycle(initialValue = SettingsUiState())
     var query by rememberSaveable { mutableStateOf("") }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
+    var pendingConfigurationRestore by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -80,8 +91,16 @@ fun SettingsScreen(
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val json = settingsStore.exportToJson()
-            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+            cancellationSafeResult {
+                val json = settingsStore.exportToJson()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                        ?: error("Could not open the selected document")
+                }
+            }.fold(
+                onSuccess = { snackbarHostState.showSnackbar("Settings exported") },
+                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Settings export failed") },
+            )
         }
     }
     val importLauncher = rememberLauncherForActivityResult(
@@ -89,8 +108,53 @@ fun SettingsScreen(
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val json = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: return@launch
-            settingsStore.importFromJson(json)
+            cancellationSafeResult {
+                val json = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                        ?: error("Could not open the selected document")
+                }
+                settingsStore.importFromJson(json)
+            }.fold(
+                onSuccess = { count -> snackbarHostState.showSnackbar("Imported $count settings") },
+                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Settings import failed") },
+            )
+        }
+    }
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val createBackup = onCreateConfigurationBackup ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            createBackup().fold(
+                onSuccess = { document ->
+                    cancellationSafeResult {
+                        withContext(Dispatchers.IO) {
+                            context.contentResolver.openOutputStream(uri)?.use {
+                                it.write(document.toByteArray())
+                            } ?: error("Could not open the selected document")
+                        }
+                    }.fold(
+                        onSuccess = { snackbarHostState.showSnackbar("Configuration backup created") },
+                        onFailure = { snackbarHostState.showSnackbar(it.message ?: "Backup failed") },
+                    )
+                },
+                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Backup failed") },
+            )
+        }
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            cancellationSafeResult {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                        ?: error("Could not open the selected document")
+                }
+            }.fold(
+                onSuccess = { pendingConfigurationRestore = it },
+                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Could not read backup") },
+            )
         }
     }
 
@@ -112,6 +176,7 @@ fun SettingsScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { innerPadding ->
         LazyColumn(
@@ -329,7 +394,7 @@ fun SettingsScreen(
             }
 
             // --- Advanced ---
-            if (queryTrimmed.isBlank() || "advanced web gui config backup".contains(queryTrimmed, ignoreCase = true)) {
+            if (queryTrimmed.isBlank() || "advanced web gui config backup restore export import relay discovery".contains(queryTrimmed, ignoreCase = true)) {
                 item(key = "advanced") {
                     SectionHeader("Advanced")
                     SectionCard {
@@ -338,6 +403,15 @@ fun SettingsScreen(
                                 headlineContent = { Text("Open Web GUI") },
                                 supportingContent = { Text("Launch Syncthing Web GUI in browser") },
                                 modifier = Modifier.clickable { onWebGuiClick() },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
+                        if (onConnectivityClick != null) {
+                            ListItem(
+                                headlineContent = { Text("Relay & discovery") },
+                                supportingContent = { Text("Configure discovery servers and connection listeners") },
+                                modifier = Modifier.clickable { onConnectivityClick() },
                                 colors = transparentListItemColors(),
                             )
                             HorizontalDivider()
@@ -356,6 +430,28 @@ fun SettingsScreen(
                             colors = transparentListItemColors(),
                         )
                         HorizontalDivider()
+                        if (onCreateConfigurationBackup != null) {
+                            ListItem(
+                                headlineContent = { Text("Backup configuration") },
+                                supportingContent = { Text("Save app settings, folders, devices and Syncthing options") },
+                                modifier = Modifier.clickable {
+                                    backupLauncher.launch("material-syncthing-backup.json")
+                                },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
+                        if (onRestoreConfigurationBackup != null) {
+                            ListItem(
+                                headlineContent = { Text("Restore configuration") },
+                                supportingContent = { Text("Restore a backup created on this device") },
+                                modifier = Modifier.clickable {
+                                    restoreLauncher.launch(arrayOf("application/json"))
+                                },
+                                colors = transparentListItemColors(),
+                            )
+                            HorizontalDivider()
+                        }
                         ListItem(
                             headlineContent = { Text("App lock") },
                             supportingContent = { Text("Require biometric or device credential") },
@@ -378,7 +474,7 @@ fun SettingsScreen(
                     SectionCard {
                         ListItem(
                             headlineContent = { Text("Version") },
-                            supportingContent = { Text("0.1.0") },
+                            supportingContent = { Text(BuildConfig.VERSION_NAME) },
                             colors = transparentListItemColors(),
                         )
                         HorizontalDivider()
@@ -421,6 +517,31 @@ fun SettingsScreen(
                     settingsStore.setSchedulerEndHour(hour)
                     settingsStore.setSchedulerEndMinute(minute)
                 }
+            },
+        )
+    }
+
+    pendingConfigurationRestore?.let { document ->
+        AlertDialog(
+            onDismissRequest = { pendingConfigurationRestore = null },
+            title = { Text("Restore configuration?") },
+            text = {
+                Text("This replaces folders, devices and Syncthing network settings, then restarts Syncthing. The backup must belong to this device.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingConfigurationRestore = null
+                    val restore = onRestoreConfigurationBackup ?: return@TextButton
+                    scope.launch {
+                        restore(document).fold(
+                            onSuccess = { snackbarHostState.showSnackbar("Configuration restored") },
+                            onFailure = { snackbarHostState.showSnackbar(it.message ?: "Restore failed") },
+                        )
+                    }
+                }) { Text("Restore") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingConfigurationRestore = null }) { Text("Cancel") }
             },
         )
     }
@@ -506,3 +627,11 @@ private fun SchedulerTimePickerDialog(
 }
 
 private fun formatClock(hour: Int, minute: Int): String = "%02d:%02d".format(hour, minute)
+
+private suspend fun <T> cancellationSafeResult(block: suspend () -> T): Result<T> = try {
+    Result.success(block())
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    Result.failure(e)
+}

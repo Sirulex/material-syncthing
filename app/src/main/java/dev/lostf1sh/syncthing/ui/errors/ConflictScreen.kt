@@ -1,6 +1,5 @@
 package dev.lostf1sh.syncthing.ui.errors
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,7 +19,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -158,11 +156,11 @@ private fun ConflictCard(
                 )
             }
             Spacer(Modifier.height(12.dp))
-            // Expressive: connected spacing so buttons feel like a group
-            Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
+            Column {
                 FilledTonalButton(
                     onClick = onKeepLocal,
                     shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(Icons.Default.PhoneAndroid, null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
@@ -171,6 +169,7 @@ private fun ConflictCard(
                 FilledTonalButton(
                     onClick = onKeepRemote,
                     shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(Icons.Default.Computer, null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
@@ -179,6 +178,7 @@ private fun ConflictCard(
                 OutlinedButton(
                     onClick = onDuplicate,
                     shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))

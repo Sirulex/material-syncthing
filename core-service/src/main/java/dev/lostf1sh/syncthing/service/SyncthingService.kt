@@ -17,6 +17,7 @@ import dev.lostf1sh.syncthing.native.NativeLauncher
 import dev.lostf1sh.syncthing.native.RunState
 import kotlin.concurrent.thread
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -145,12 +146,16 @@ class SyncthingService : Service() {
                     list.forEach { folder ->
                         try {
                             client.rescanFolder(folder.id)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (_: Exception) {
                         }
                     }
                 } finally {
                     client.close()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Rescan-all failed", e)
             }
@@ -212,6 +217,7 @@ class SyncthingService : Service() {
                     return@launch
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.w(TAG, "Constraint gate read failed; proceeding", e)
             }
             try {
@@ -227,10 +233,18 @@ class SyncthingService : Service() {
                 val deviceId = try {
                     launcher.getDeviceId()
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.w(TAG, "Could not read device ID before start; patching config without local name", e)
                     null
                 }
-                bootstrapper.patchConfig(deviceId)
+                val preferredDeviceName = try {
+                    settings.deviceName.first().takeIf { it.isNotBlank() }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.w(TAG, "Could not read preferred device name", e)
+                    null
+                }
+                bootstrapper.patchConfig(deviceId, preferredDeviceName)
 
                 val apiKey = bootstrapper.readApiKey()
                 val port = bootstrapper.readGuiPort()
@@ -252,6 +266,7 @@ class SyncthingService : Service() {
                         val exitCode = try {
                             processJob.await()
                         } catch (e: Exception) {
+                            if (e is CancellationException) throw e
                             Log.w(TAG, "Process job failed with exception before API was ready", e)
                             -1
                         }
@@ -299,6 +314,8 @@ class SyncthingService : Service() {
 
                     else -> stopSelf()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start Syncthing", e)
                 _state.value = RunState.Crashed(-1, e.message ?: "Unknown error")
@@ -322,6 +339,7 @@ class SyncthingService : Service() {
                             return@withTimeoutOrNull true
                         }
                     } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                         Log.d(TAG, "Waiting for Syncthing API on 127.0.0.1:$port: ${e.message}")
                     }
                     delay(500)

@@ -116,6 +116,18 @@ class ConfigBootstrapperTest {
         assertThat(patched).contains("name=\"TestDevice\"")
     }
 
+    @Test
+    fun `patchConfig applies onboarding name to unnamed local device`() {
+        File(configDir, "config.xml").writeText(
+            MINIMAL_CONFIG.replace("name=\"TestDevice\"", "name=\"\"")
+        )
+
+        bootstrapper.patchConfig("DEVICE1-ABCDEF", "My Android")
+
+        val patched = File(configDir, "config.xml").readText()
+        assertThat(patched).contains("name=\"My Android\"")
+    }
+
     companion object {
         private val MINIMAL_CONFIG = """
             <?xml version="1.0" encoding="UTF-8"?>

@@ -45,6 +45,7 @@ import dev.lostf1sh.syncthing.ui.folders.appendIgnorePattern
 import dev.lostf1sh.syncthing.api.dto.BrowseEntry
 import dev.lostf1sh.syncthing.data.ConflictResolver
 import dev.lostf1sh.syncthing.data.FolderCondition
+import dev.lostf1sh.syncthing.data.SettingsBackupCodec
 import dev.lostf1sh.syncthing.data.parseFolderConditions
 import dev.lostf1sh.syncthing.ui.errors.ConflictScreen
 import dev.lostf1sh.syncthing.ui.errors.ErrorCenterScreen
@@ -68,6 +69,7 @@ import dev.lostf1sh.syncthing.ui.qr.ShowQrDialog
 import dev.lostf1sh.syncthing.ui.qr.QrScannerScreen
 import dev.lostf1sh.syncthing.ui.settings.BatteryWizardScreen
 import dev.lostf1sh.syncthing.ui.settings.BiometricLockScreen
+import dev.lostf1sh.syncthing.ui.settings.ConnectivitySettingsScreen
 import dev.lostf1sh.syncthing.ui.settings.DiagnosticsScreen
 import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
@@ -444,6 +446,8 @@ fun AppNavigation(
                 while (currentCoroutineContext().isActive) {
                     try {
                         status = container.folderRepository?.folderStatus(route.id)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (_: Exception) {
                     }
                     delay(2_000)
@@ -929,7 +933,10 @@ fun AppNavigation(
                                 return@launch
                             }
 
-                            ConflictResolver.Result.Success -> appState.setDiagnostic(null)
+                            ConflictResolver.Result.Success -> {
+                                appState.setConflicts(appState.conflicts.value.filterNot { it == c })
+                                appState.setDiagnostic(null)
+                            }
                         }
                         fireAndForget(
                             { container.client?.rescanFolder(c.folderId) },
@@ -949,7 +956,10 @@ fun AppNavigation(
                                 return@launch
                             }
 
-                            ConflictResolver.Result.Success -> appState.setDiagnostic(null)
+                            ConflictResolver.Result.Success -> {
+                                appState.setConflicts(appState.conflicts.value.filterNot { it == c })
+                                appState.setDiagnostic(null)
+                            }
                         }
                         fireAndForget(
                             { container.client?.rescanFolder(c.folderId) },
@@ -959,7 +969,21 @@ fun AppNavigation(
                     }
                 },
                 onDuplicate = { c ->
+                    val folderPath = pathOf(c.folderId) ?: return@ConflictScreen
                     scope.launch {
+                        when (val result = withContext(Dispatchers.IO) {
+                            ConflictResolver.keepBoth(folderPath, c.path)
+                        }) {
+                            is ConflictResolver.Result.Failure -> {
+                                appState.setDiagnostic("Could not resolve conflict: ${result.reason}")
+                                return@launch
+                            }
+
+                            ConflictResolver.Result.Success -> {
+                                appState.setConflicts(appState.conflicts.value.filterNot { it == c })
+                                appState.setDiagnostic(null)
+                            }
+                        }
                         fireAndForget(
                             { container.client?.rescanFolder(c.folderId) },
                             appState,
@@ -993,10 +1017,97 @@ fun AppNavigation(
                 onDiagnosticsClick = { navigateOnce(DiagnosticsRoute) },
                 onErrorCenterClick = { navigateOnce(ErrorCenterRoute) },
                 onBatteryWizardClick = { navigateOnce(BatteryWizardRoute) },
+                onConnectivityClick = { navigateOnce(ConnectivitySettingsRoute) },
                 onWebGuiClick = {
                     val url = "http://127.0.0.1:$guiPort"
                     CustomTabsIntent.Builder().build().launchUrl(context, android.net.Uri.parse(url))
                 },
+                onCreateConfigurationBackup = {
+                    val client = container.client
+                        ?: return@SettingsScreen Result.failure(
+                            IllegalStateException("Syncthing service is not running")
+                        )
+                    val deviceId = localDeviceId
+                        ?.takeIf { it.isNotBlank() }
+                        ?: return@SettingsScreen Result.failure(
+                            IllegalStateException("Local device ID is unavailable")
+                        )
+                    try {
+                        Result.success(
+                            SettingsBackupCodec.encodeConfigurationBackup(
+                                deviceId = deviceId,
+                                createdAtEpochMs = System.currentTimeMillis(),
+                                appSettings = container.settingsStore.exportPreferences(),
+                                syncthingConfig = client.rawConfig(),
+                            )
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                },
+                onRestoreConfigurationBackup = { document ->
+                    val client = container.client
+                        ?: return@SettingsScreen Result.failure(
+                            IllegalStateException("Syncthing service is not running")
+                        )
+                    try {
+                        val backup = SettingsBackupCodec.decodeConfigurationBackup(document)
+                        val currentDeviceId = localDeviceId
+                            ?.takeIf { it.isNotBlank() }
+                            ?: throw IllegalStateException("Local device ID is unavailable")
+                        require(backup.deviceId == currentDeviceId) {
+                            "This backup belongs to a different Syncthing device"
+                        }
+                        val mergedConfig = SettingsBackupCodec.mergeForRestore(
+                            current = client.rawConfig(),
+                            backup = backup.syncthingConfig,
+                        )
+                        client.replaceConfig(mergedConfig)
+                        container.settingsStore.importPreferences(backup.appSettings)
+                        client.restart()
+                        Result.success(Unit)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                },
+            )
+        }
+        composable<ConnectivitySettingsRoute> {
+            var options by remember { mutableStateOf<dev.lostf1sh.syncthing.api.dto.ConnectivityOptions?>(null) }
+            LaunchedEffect(serviceState) {
+                val client = container.client ?: return@LaunchedEffect
+                try {
+                    options = client.connectivityOptions()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                    appState.setDiagnostic("Could not load relay/discovery settings: $detail")
+                }
+            }
+            ConnectivitySettingsScreen(
+                initialOptions = options,
+                onSave = { updated ->
+                    val client = container.client
+                        ?: return@ConnectivitySettingsScreen Result.failure(
+                            IllegalStateException("Syncthing service is not running")
+                        )
+                    try {
+                        client.updateConnectivityOptions(updated)
+                        if (client.restartRequired()) client.restart()
+                        appState.setDiagnostic(null)
+                        Result.success(Unit)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable<RecentChangesRoute> {

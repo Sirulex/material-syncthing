@@ -48,6 +48,8 @@ suspend fun refreshHomeData(
                     fMap[f.id] = s
                     appState.updateFolderState(f.id, s.state)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Best-effort per-folder status; don't let one bad folder
                 // block the whole refresh.
@@ -149,6 +151,8 @@ suspend fun repairFolderIndex(
             while (currentCoroutineContext().isActive) {
                 try {
                     if (client.ping().ping == "pong") return@withTimeoutOrNull true
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                 }
                 delay(1_000)

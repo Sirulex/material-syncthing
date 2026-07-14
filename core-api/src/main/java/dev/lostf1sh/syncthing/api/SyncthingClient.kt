@@ -21,6 +21,7 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 
 class SyncthingClient(
     baseUrl: String = "http://127.0.0.1:8384",
@@ -92,9 +93,52 @@ class SyncthingClient(
     }
 
     suspend fun updateFolder(folder: Folder) {
-        http.put("/rest/config/folders/${folder.id}") {
+        // Folder is intentionally a partial view of Syncthing's configuration.
+        // PATCH only the fields exposed by the editor so advanced settings that
+        // are unknown to this client are not reset to daemon defaults.
+        http.patch("/rest/config/folders/${folder.id}") {
             contentType(ContentType.Application.Json)
-            setBody(folder)
+            setBody(
+                FolderUpdate(
+                    label = folder.label,
+                    path = folder.path,
+                    type = folder.type,
+                    devices = folder.devices,
+                    versioning = folder.versioning,
+                )
+            )
+        }
+    }
+
+    suspend fun connectivityOptions(): ConnectivityOptions =
+        http.get("/rest/config/options").body()
+
+    suspend fun updateConnectivityOptions(options: ConnectivityOptions) {
+        http.patch("/rest/config/options") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                ConnectivityOptionsUpdate(
+                    listenAddresses = options.listenAddresses,
+                    globalAnnounceServers = options.globalAnnounceServers,
+                    globalAnnounceEnabled = options.globalAnnounceEnabled,
+                    localAnnounceEnabled = options.localAnnounceEnabled,
+                    relaysEnabled = options.relaysEnabled,
+                )
+            )
+        }
+    }
+
+    suspend fun restartRequired(): Boolean =
+        http.get("/rest/config/restart-required")
+            .body<RestartRequired>()
+            .requiresRestart
+
+    suspend fun rawConfig(): JsonObject = http.get("/rest/config").body()
+
+    suspend fun replaceConfig(config: JsonObject) {
+        http.put("/rest/config") {
+            contentType(ContentType.Application.Json)
+            setBody(config)
         }
     }
 
