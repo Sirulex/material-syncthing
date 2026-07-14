@@ -1,0 +1,162 @@
+name: Build universal APK
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: universal-apk-main
+  cancel-in-progress: true
+
+env:
+  SYNCTHING_VERSION: v1.29.2
+
+jobs:
+  build:
+    name: Build signed universal APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.22.x"
+          cache: false
+
+      - name: Prepare signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_KEYSTORE_BASE64:?Missing GitHub secret ANDROID_KEYSTORE_BASE64}"
+          : "${ANDROID_KEYSTORE_PASSWORD:?Missing GitHub secret ANDROID_KEYSTORE_PASSWORD}"
+          : "${ANDROID_KEY_ALIAS:?Missing GitHub secret ANDROID_KEY_ALIAS}"
+          : "${ANDROID_KEY_PASSWORD:?Missing GitHub secret ANDROID_KEY_PASSWORD}"
+
+          keystore_path="${RUNNER_TEMP}/material-syncthing-release.keystore"
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
+          chmod 600 "${keystore_path}"
+          test -s "${keystore_path}"
+          keytool -list \
+            -keystore "${keystore_path}" \
+            -storepass:env ANDROID_KEYSTORE_PASSWORD \
+            -alias "${ANDROID_KEY_ALIAS}" >/dev/null
+
+          echo "ANDROID_KEYSTORE_PATH=${keystore_path}" >> "${GITHUB_ENV}"
+
+      - name: Set build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:7}"
+          echo "ANDROID_VERSION_CODE=$((10000 + GITHUB_RUN_NUMBER))" >> "${GITHUB_ENV}"
+          echo "APK_BASENAME=material-syncthing-universal-${short_sha}" >> "${GITHUB_ENV}"
+
+      - name: Build Syncthing native binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK_HOME="${ANDROID_NDK_HOME}" ./core-native/build-syncthing.sh
+
+      - name: Verify native ABI coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            binary="core-native/src/main/jniLibs/${abi}/libsyncthingnative.so"
+            test -s "${binary}"
+            file "${binary}"
+          done
+
+      - name: Run unit tests and build release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew test :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify and stage universal APK
+        id: apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_apk="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "${source_apk}"
+
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify \
+            --verbose \
+            --print-certs \
+            "${source_apk}"
+
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            unzip -Z1 "${source_apk}" | grep -Fx "lib/${abi}/libsyncthingnative.so"
+          done
+
+          mkdir -p artifacts
+          destination="artifacts/${APK_BASENAME}.apk"
+          cp "${source_apk}" "${destination}"
+          sha256sum "${destination}" > "${destination}.sha256"
+          echo "APK_FILE=${destination}" >> "${GITHUB_ENV}"
+
+          {
+            echo "### Universal APK"
+            echo
+            echo "- File: \`${APK_BASENAME}.apk\`"
+            echo "- Version code: \`${ANDROID_VERSION_CODE}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload universal APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.APK_BASENAME }}
+          path: |
+            artifacts/*.apk
+            artifacts/*.sha256
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag="main-build-${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          release_title="Material Syncthing main build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT} (${GITHUB_SHA:0:7})"
+
+          gh release create "${release_tag}" \
+            "${APK_FILE}" \
+            "${APK_FILE}.sha256" \
+            --target "${GITHUB_SHA}" \
+            --title "${release_title}" \
+            --generate-notes \
+            --latest
+
+      - name: Remove signing keystore
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${ANDROID_KEYSTORE_PATH:-}" ]]; then
+            rm -f "${ANDROID_KEYSTORE_PATH}"
+          fi

@@ -4,22 +4,52 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val ciVersionCode = providers.environmentVariable("ANDROID_VERSION_CODE")
+    .orNull
+    ?.toIntOrNull()
+    ?.takeIf { it > 0 }
+
+val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH")
+val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS")
+val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD")
+val releaseSigningConfigured = listOf(
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { it.isPresent }
+
 android {
-    namespace = "dev.lostf1sh.syncthing"
+    namespace = "dev.sirulex.syncthing"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.lostf1sh.syncthing"
+        applicationId = "dev.sirulex.syncthing"
         minSdk = 28
         targetSdk = 35
-        versionCode = 2
+        versionCode = ciVersionCode ?: 2
         versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(releaseKeystorePath.get())
+                storePassword = releaseKeystorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
