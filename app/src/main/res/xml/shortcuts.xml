@@ -9,7 +9,7 @@
         android:shortcutLongLabel="@string/shortcut_start_long">
         <intent
             android:action="dev.lostf1sh.syncthing.shortcut.START"
-            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetPackage="dev.sirulex.syncthing"
             android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
     </shortcut>
 
@@ -21,7 +21,7 @@
         android:shortcutLongLabel="@string/shortcut_rescan_all_long">
         <intent
             android:action="dev.lostf1sh.syncthing.shortcut.RESCAN_ALL"
-            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetPackage="dev.sirulex.syncthing"
             android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
     </shortcut>
 
@@ -33,7 +33,7 @@
         android:shortcutLongLabel="@string/shortcut_pause_long">
         <intent
             android:action="dev.lostf1sh.syncthing.shortcut.PAUSE"
-            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetPackage="dev.sirulex.syncthing"
             android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
     </shortcut>
 
@@ -45,7 +45,7 @@
         android:shortcutLongLabel="@string/shortcut_errors_long">
         <intent
             android:action="dev.lostf1sh.syncthing.shortcut.ERROR_CENTER"
-            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetPackage="dev.sirulex.syncthing"
             android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
     </shortcut>
 
@@ -57,7 +57,7 @@
         android:shortcutLongLabel="@string/shortcut_insights_long">
         <intent
             android:action="dev.lostf1sh.syncthing.shortcut.INSIGHTS"
-            android:targetPackage="dev.lostf1sh.syncthing"
+            android:targetPackage="dev.sirulex.syncthing"
             android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
     </shortcut>
 
