@@ -106,6 +106,16 @@ class ConfigBootstrapperTest {
         assertThat(first).isEqualTo(second)
     }
 
+    @Test
+    fun `patchConfig preserves a custom local device name`() {
+        File(configDir, "config.xml").writeText(MINIMAL_CONFIG)
+
+        bootstrapper.patchConfig("DEVICE1-ABCDEF")
+
+        val patched = File(configDir, "config.xml").readText()
+        assertThat(patched).contains("name=\"TestDevice\"")
+    }
+
     companion object {
         private val MINIMAL_CONFIG = """
             <?xml version="1.0" encoding="UTF-8"?>

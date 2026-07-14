@@ -21,7 +21,7 @@ import javax.xml.transform.stream.StreamResult
  * - GUI binds to 127.0.0.1:8384
  * - startBrowser = false
  * - ignorePerms = true on all folders
- * - Local device named after Build.MODEL
+ * - Unnamed local device named after Build.MODEL
  *
  * @param configDir The STHOMEDIR directory containing config.xml
  */
@@ -117,7 +117,10 @@ class ConfigBootstrapper(private val configDir: File) {
                     val element = node as org.w3c.dom.Element
                     if (element.getAttribute("id") == localDeviceId) {
                         val currentName = element.getAttribute("name")
-                        if (currentName.isNullOrBlank() || currentName != Build.MODEL) {
+                        // A name changed through Syncthing's API is already persisted
+                        // in config.xml. Only provide a device-model default when the
+                        // generated config did not contain a name yet.
+                        if (currentName.isNullOrBlank()) {
                             element.setAttribute("name", Build.MODEL)
                             changed = true
                         }

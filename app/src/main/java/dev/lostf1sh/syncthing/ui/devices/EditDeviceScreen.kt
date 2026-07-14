@@ -57,6 +57,7 @@ fun EditDeviceScreen(
     initialCompression: String,
     initialIntroducer: Boolean,
     initialAutoAcceptFolders: Boolean,
+    nameOnly: Boolean = false,
     onSave: suspend (name: String, addresses: List<String>, compression: String, introducer: Boolean, autoAcceptFolders: Boolean) -> Result<Unit>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -83,7 +84,7 @@ fun EditDeviceScreen(
     Scaffold(
         topBar = {
             MediumFlexibleTopAppBar(
-                title = { Text("Edit Device") },
+                title = { Text(if (nameOnly) "Edit Device Name" else "Edit Device") },
                 subtitle = { Text(deviceId.take(7)) },
                 navigationIcon = {
                     IconButton(
@@ -156,63 +157,65 @@ fun EditDeviceScreen(
                 enabled = !isLoading,
             )
 
-            Spacer(Modifier.height(8.dp))
+            if (!nameOnly) {
+                Spacer(Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = addressesText,
-                onValueChange = { addressesText = it },
-                label = { Text("Addresses") },
-                supportingText = {
-                    if (addressesText.isBlank()) Text("Leave blank for automatic discovery")
-                    else if (!addressesValid) Text("Enter comma-separated addresses")
-                    else Text("Comma-separated list of addresses")
-                },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                enabled = !isLoading,
-            )
-
-            Spacer(Modifier.height(16.dp))
-            Text("Compression", style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(8.dp))
-            CompressionOption.entries.forEach { option ->
-                FilterChip(
-                    selected = selectedCompression == option,
-                    onClick = { selectedCompression = option },
-                    label = { Text(option.label) },
+                OutlinedTextField(
+                    value = addressesText,
+                    onValueChange = { addressesText = it },
+                    label = { Text("Addresses") },
+                    supportingText = {
+                        if (addressesText.isBlank()) Text("Leave blank for automatic discovery")
+                        else if (!addressesValid) Text("Enter comma-separated addresses")
+                        else Text("Comma-separated list of addresses")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    enabled = !isLoading,
                 )
-                Spacer( Modifier.height(8.dp) )
-            }
 
-            Spacer(Modifier.height(8.dp))
-            Text("Options", style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(4.dp))
-            ListItem(
-                headlineContent = { Text("Introducer") },
-                supportingContent = {
-                    Text("This device can share folders with other devices")
-                },
-                trailingContent = {
-                    Switch(
-                        checked = introducer,
-                        onCheckedChange = { introducer = it },
-                        enabled = !isLoading,
+                Spacer(Modifier.height(16.dp))
+                Text("Compression", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                CompressionOption.entries.forEach { option ->
+                    FilterChip(
+                        selected = selectedCompression == option,
+                        onClick = { selectedCompression = option },
+                        label = { Text(option.label) },
                     )
-                },
-            )
-            ListItem(
-                headlineContent = { Text("Auto-Accept Folders") },
-                supportingContent = {
-                    Text("Automatically accept folders shared by this device")
-                },
-                trailingContent = {
-                    Switch(
-                        checked = autoAcceptFolders,
-                        onCheckedChange = { autoAcceptFolders = it },
-                        enabled = !isLoading,
-                    )
-                },
-            )
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text("Options", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(4.dp))
+                ListItem(
+                    headlineContent = { Text("Introducer") },
+                    supportingContent = {
+                        Text("Automatically add devices it shares mutual folders with")
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = introducer,
+                            onCheckedChange = { introducer = it },
+                            enabled = !isLoading,
+                        )
+                    },
+                )
+                ListItem(
+                    headlineContent = { Text("Auto-Accept Folders") },
+                    supportingContent = {
+                        Text("Automatically accept folders shared by this device")
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = autoAcceptFolders,
+                            onCheckedChange = { autoAcceptFolders = it },
+                            enabled = !isLoading,
+                        )
+                    },
+                )
+            }
 
             Spacer(Modifier.height(80.dp))
         }

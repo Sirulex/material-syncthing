@@ -113,9 +113,20 @@ class SyncthingClient(
     }
 
     suspend fun updateDevice(device: Device) {
-        http.put("/rest/config/devices/${device.deviceID}") {
+        // PATCH is intentional: Device only models the fields the app consumes.
+        // PUT would reset Syncthing settings unknown to this DTO (for example an
+        // introduced device's provenance and removal policy).
+        http.patch("/rest/config/devices/${device.deviceID}") {
             contentType(ContentType.Application.Json)
-            setBody(device)
+            setBody(
+                DeviceUpdate(
+                    name = device.name,
+                    addresses = device.addresses,
+                    compression = device.compression,
+                    introducer = device.introducer,
+                    autoAcceptFolders = device.autoAcceptFolders,
+                )
+            )
         }
     }
 
@@ -244,6 +255,21 @@ class SyncthingClient(
 
     suspend fun events(since: Long, timeout: Int = 60): List<Event> =
         http.get("/rest/events") {
+            parameter("since", since)
+            parameter("timeout", timeout)
+            timeout {
+                requestTimeoutMillis = (timeout.toLong() + 10) * 1000
+                socketTimeoutMillis = (timeout.toLong() + 10) * 1000
+            }
+        }.body()
+
+    /**
+     * File-system changes are deliberately excluded from Syncthing's default
+     * event stream. The dedicated disk endpoint includes both locally detected
+     * and remotely applied changes.
+     */
+    suspend fun diskEvents(since: Long, timeout: Int = 60): List<Event> =
+        http.get("/rest/events/disk") {
             parameter("since", since)
             parameter("timeout", timeout)
             timeout {

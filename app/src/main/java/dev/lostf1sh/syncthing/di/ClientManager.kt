@@ -31,7 +31,10 @@ class ClientManager {
             folderRepository = FolderRepository(newClient),
             deviceRepository = DeviceRepository(newClient),
             systemRepository = SystemRepository(newClient),
-            eventRepository = EventRepository(EventStream(newClient)),
+            eventRepository = EventRepository(
+                eventStream = EventStream(newClient),
+                diskEventStream = EventStream(newClient, EventStream.Source.DISK),
+            ),
             port = port,
         ).also { handles = it }
     }

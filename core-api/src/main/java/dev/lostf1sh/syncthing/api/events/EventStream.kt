@@ -22,7 +22,12 @@ import java.net.ConnectException
  * The server holds the request open for up to [serverTimeoutSec] seconds,
  * so each iteration is effectively a blocking wait for new events.
  */
-class EventStream(private val client: SyncthingClient) {
+class EventStream(
+    private val client: SyncthingClient,
+    private val source: Source = Source.DEFAULT,
+) {
+
+    enum class Source { DEFAULT, DISK }
 
     companion object {
         private const val TAG = "EventStream"
@@ -34,7 +39,10 @@ class EventStream(private val client: SyncthingClient) {
         var since = 0L
         while (currentCoroutineContext().isActive) {
             try {
-                val batch = client.events(since = since, timeout = SERVER_TIMEOUT_SEC)
+                val batch = when (source) {
+                    Source.DEFAULT -> client.events(since = since, timeout = SERVER_TIMEOUT_SEC)
+                    Source.DISK -> client.diskEvents(since = since, timeout = SERVER_TIMEOUT_SEC)
+                }
                 for (raw in batch) {
                     val event = try {
                         parse(raw)
@@ -137,6 +145,24 @@ class EventStream(private val client: SyncthingClient) {
                 item = data?.get("item")?.jsonPrimitive?.content ?: "",
                 action = data?.get("action")?.jsonPrimitive?.content ?: "",
                 error = data?.get("error")?.takeIf { it !is JsonNull }?.jsonPrimitive?.content?.takeIf { it.isNotBlank() },
+            )
+            "LocalChangeDetected" -> SyncthingEvent.LocalChangeDetected(
+                id = raw.id,
+                time = raw.time,
+                folderId = data?.get("folder")?.jsonPrimitive?.content
+                    ?: data?.get("folderID")?.jsonPrimitive?.content
+                    ?: "",
+                path = data?.get("path")?.jsonPrimitive?.content ?: "",
+                action = data?.get("action")?.jsonPrimitive?.content ?: "",
+            )
+            "RemoteChangeDetected" -> SyncthingEvent.RemoteChangeDetected(
+                id = raw.id,
+                time = raw.time,
+                folderId = data?.get("folder")?.jsonPrimitive?.content
+                    ?: data?.get("folderID")?.jsonPrimitive?.content
+                    ?: "",
+                path = data?.get("path")?.jsonPrimitive?.content ?: "",
+                action = data?.get("action")?.jsonPrimitive?.content ?: "",
             )
             "ConfigSaved" -> SyncthingEvent.ConfigSaved(
                 id = raw.id,

@@ -266,15 +266,18 @@ class SyncthingService : Service() {
                 updateNotification(running)
 
                 val exitCode = processJob.await()
-                val newState = launcher.interpretExitCode(exitCode)
                 val pauseReason = requestedPauseReason
-                if (pauseReason != null && newState is RunState.Stopped) {
+                // A requested pause owns the process exit regardless of the
+                // exact signal observed. During a network handoff SIGPIPE (141)
+                // can win the race with our SIGTERM; it must not auto-restart.
+                if (pauseReason != null) {
                     requestedPauseReason = null
                     val paused = RunState.Paused(pauseReason)
                     _state.value = paused
                     updateNotification(paused)
                     return@launch
                 }
+                val newState = launcher.interpretExitCode(exitCode)
                 _state.value = newState
 
                 when (newState) {
@@ -284,8 +287,9 @@ class SyncthingService : Service() {
                     }
 
                     is RunState.Starting -> {
-                        // Exit code 3 = restart requested. Schedule on Main so the
-                        // current job unwinds before startSyncthing() mutates job state.
+                        // A recoverable exit requested a restart. Schedule on Main
+                        // so the current job unwinds before startSyncthing() mutates
+                        // job state.
                         Log.i(TAG, "Restart requested by Syncthing")
                         serviceScope.launch(Dispatchers.Main) {
                             syncthingJob = null

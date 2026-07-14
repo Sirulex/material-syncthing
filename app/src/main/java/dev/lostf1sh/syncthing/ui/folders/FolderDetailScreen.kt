@@ -41,12 +41,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +81,14 @@ fun FolderDetailScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showRepairDialog by remember { mutableStateOf(false) }
+    // Keep the switches responsive while DataStore persists the new values. Without
+    // local state the controlled switches briefly jump back to their old value and
+    // a second quick change can be based on a stale pair of conditions.
+    var displayedWifiOnly by remember(folder?.id) { mutableStateOf(wifiOnly) }
+    var displayedChargingOnly by remember(folder?.id) { mutableStateOf(chargingOnly) }
+
+    LaunchedEffect(wifiOnly) { displayedWifiOnly = wifiOnly }
+    LaunchedEffect(chargingOnly) { displayedChargingOnly = chargingOnly }
 
     Scaffold(
         topBar = {
@@ -301,11 +309,13 @@ fun FolderDetailScreen(
                     supportingContent = { Text("Pause this folder when not on Wi-Fi") },
                     leadingContent = { Icon(Icons.Default.Wifi, null) },
                     trailingContent = {
-                        ToggleButton(
-                            checked = wifiOnly,
-                            onCheckedChange = { onConditionsChanged(it, chargingOnly) },
-                            shapes = ToggleButtonDefaults.shapes(),
-                        ) { }
+                        Switch(
+                            checked = displayedWifiOnly,
+                            onCheckedChange = { checked ->
+                                displayedWifiOnly = checked
+                                onConditionsChanged(checked, displayedChargingOnly)
+                            },
+                        )
                     },
                 )
                 ListItem(
@@ -313,11 +323,13 @@ fun FolderDetailScreen(
                     supportingContent = { Text("Pause this folder when not charging") },
                     leadingContent = { Icon(Icons.Default.BatteryChargingFull, null) },
                     trailingContent = {
-                        ToggleButton(
-                            checked = chargingOnly,
-                            onCheckedChange = { onConditionsChanged(wifiOnly, it) },
-                            shapes = ToggleButtonDefaults.shapes(),
-                        ) { }
+                        Switch(
+                            checked = displayedChargingOnly,
+                            onCheckedChange = { checked ->
+                                displayedChargingOnly = checked
+                                onConditionsChanged(displayedWifiOnly, checked)
+                            },
+                        )
                     },
                 )
             }

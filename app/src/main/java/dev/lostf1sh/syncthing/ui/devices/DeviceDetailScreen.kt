@@ -1,5 +1,6 @@
 package dev.lostf1sh.syncthing.ui.devices
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -167,11 +168,6 @@ fun DeviceDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (onEdit != null && !isLocal) {
-                        FilledTonalIconButton(onClick = { onEdit(device.deviceID) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
-                        }
-                    }
                     FilledTonalIconButton(onClick = {
                         clipboard.setText(AnnotatedString(device.deviceID))
                     }) {
@@ -234,6 +230,19 @@ fun DeviceDetailScreen(
                         if (isLocal) "${device.name.ifBlank { "(unnamed)" }} — Your Device"
                         else device.name.ifBlank { "(unnamed)" }
                     )
+                },
+                trailingContent = if (onEdit != null) {
+                    {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit device name",
+                        )
+                    }
+                } else {
+                    null
+                },
+                modifier = Modifier.clickable(enabled = onEdit != null) {
+                    onEdit?.invoke(device.deviceID)
                 },
             )
             ListItem(

@@ -1,6 +1,8 @@
 package dev.lostf1sh.syncthing.api
 
 import com.google.common.truth.Truth.assertThat
+import dev.lostf1sh.syncthing.api.dto.Device
+import dev.lostf1sh.syncthing.api.dto.DeviceUpdate
 import dev.lostf1sh.syncthing.api.dto.PingResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -11,10 +13,12 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
 import org.junit.Test
 
 class SyncthingClientTest {
@@ -136,5 +140,41 @@ class SyncthingClientTest {
         val client = SyncthingClient(apiKey = "test", httpClient = httpClient)
         val response = client.ping()
         assertThat(response.ping).isEqualTo("pong")
+    }
+
+    @Test
+    fun `device update patches existing configuration`() = runTest {
+        var method: HttpMethod? = null
+        var path: String? = null
+        val engine = MockEngine { request ->
+            method = request.method
+            path = request.url.encodedPath
+            respond(content = "", status = HttpStatusCode.OK)
+        }
+        val httpClient = HttpClient(engine) {
+            install(ContentNegotiation) { json(SyncthingClient.defaultJson) }
+        }
+        val client = SyncthingClient(apiKey = "test", httpClient = httpClient)
+
+        client.updateDevice(Device(deviceID = "ABC-DEF", introducer = true))
+
+        assertThat(method).isEqualTo(HttpMethod.Patch)
+        assertThat(path).isEqualTo("/rest/config/devices/ABC-DEF")
+    }
+
+    @Test
+    fun `device update serializes explicit false values`() {
+        val encoded = SyncthingClient.defaultJson.encodeToString(
+            DeviceUpdate(
+                name = "Peer",
+                addresses = listOf("dynamic"),
+                compression = "metadata",
+                introducer = false,
+                autoAcceptFolders = false,
+            )
+        )
+
+        assertThat(encoded).contains("\"introducer\":false")
+        assertThat(encoded).contains("\"autoAcceptFolders\":false")
     }
 }

@@ -156,7 +156,11 @@ class NativeLauncher(
      */
     fun interpretExitCode(exitCode: Int): RunState = when (exitCode) {
         0, 137, 143 -> RunState.Stopped // 137=SIGKILL, 143=SIGTERM
-        3 -> RunState.Starting // restart requested
+        // 141 = 128 + SIGPIPE. Syncthing can receive it while Android swaps
+        // the default network underneath active sockets. Treat that handoff as
+        // recoverable just like Syncthing's own restart request instead of
+        // surfacing a false crash notification.
+        3, 141 -> RunState.Starting
         else -> RunState.Crashed(exitCode, exitCodeReason(exitCode))
     }
 
