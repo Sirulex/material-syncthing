@@ -32,11 +32,15 @@ for abi in "${!ABIS[@]}"; do
   read -r cc goarch <<< "${ABIS[$abi]}"
   echo "==> Building for $abi (GOARCH=$goarch)"
   mkdir -p "$OUT/$abi"
-  CGO_ENABLED=1 \
-  CC="${TOOLCHAIN}/${cc}" \
-  GOOS=android \
-  GOARCH="$goarch" \
-    go run build.go -no-upgrade build
+  # build.go must itself run on the CI host. Pass the Android target through
+  # its flags; exporting GOOS/GOARCH here would cross-compile the helper and
+  # then fail when Linux tries to execute it ("exec format error").
+  CGO_ENABLED=1 go run build.go \
+    -goos android \
+    -goarch "$goarch" \
+    -cc "${TOOLCHAIN}/${cc}" \
+    -no-upgrade \
+    build
   mv syncthing "$OUT/$abi/libsyncthingnative.so"
   echo "==> $abi done: $OUT/$abi/libsyncthingnative.so"
 done
