@@ -17,7 +17,10 @@ import kotlinx.coroutines.launch
  * Central event hub. Collects events from EventStream and
  * exposes filtered flows for specific screens.
  */
-class EventRepository(private val eventStream: EventStream) {
+class EventRepository(
+    private val eventStream: EventStream,
+    private val diskEventStream: EventStream? = null,
+) {
 
     private val _events = MutableSharedFlow<SyncthingEvent>(
         replay = 0,
@@ -35,7 +38,12 @@ class EventRepository(private val eventStream: EventStream) {
         synchronized(startLock) {
             if (collectJob?.isActive == true) return
             collectJob = scope.launch {
-                eventStream.events().collect { _events.emit(it) }
+                kotlinx.coroutines.coroutineScope {
+                    launch { eventStream.events().collect { _events.emit(it) } }
+                    diskEventStream?.let { stream ->
+                        launch { stream.events().collect { _events.emit(it) } }
+                    }
+                }
             }
         }
     }
@@ -83,10 +91,10 @@ class EventRepository(private val eventStream: EventStream) {
         .filter { it is SyncthingEvent.ConfigSaved }
         .map { it as SyncthingEvent.ConfigSaved }
 
-    /** All item finished events (recent changes feed). */
-    fun recentChanges(): Flow<SyncthingEvent.ItemFinished> = events
-        .filter { it is SyncthingEvent.ItemFinished }
-        .map { it as SyncthingEvent.ItemFinished }
+    /** Local and remotely applied file-system changes (recent changes feed). */
+    fun recentChanges(): Flow<SyncthingEvent.ChangeDetected> = events
+        .filter { it is SyncthingEvent.ChangeDetected }
+        .map { it as SyncthingEvent.ChangeDetected }
 
     /** Pending devices changed events. */
     fun pendingDevicesChanged(): Flow<SyncthingEvent.PendingDevicesChanged> = events

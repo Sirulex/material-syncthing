@@ -46,7 +46,6 @@ import dev.lostf1sh.syncthing.api.dto.BrowseEntry
 import dev.lostf1sh.syncthing.data.ConflictResolver
 import dev.lostf1sh.syncthing.data.FolderCondition
 import dev.lostf1sh.syncthing.data.parseFolderConditions
-import dev.lostf1sh.syncthing.data.serializeFolderConditions
 import dev.lostf1sh.syncthing.ui.errors.ConflictScreen
 import dev.lostf1sh.syncthing.ui.errors.ErrorCenterScreen
 import dev.lostf1sh.syncthing.ui.home.HomeScreen
@@ -513,10 +512,10 @@ fun AppNavigation(
                 onConditionsChanged = { wifi, charging ->
                     scope.launch {
                         try {
-                            val updated = folderConditions.toMutableMap().apply {
-                                put(folderId, FolderCondition(wifi, charging))
-                            }
-                            container.settingsStore.setFolderConditions(serializeFolderConditions(updated))
+                            container.settingsStore.setFolderCondition(
+                                folderId,
+                                FolderCondition(wifi, charging),
+                            )
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
@@ -688,6 +687,7 @@ fun AppNavigation(
                 initialCompression = device.compression,
                 initialIntroducer = device.introducer,
                 initialAutoAcceptFolders = device.autoAcceptFolders,
+                nameOnly = device.deviceID == localDeviceId,
                 onSave = { name, addresses, compression, introducer, autoAcceptFolders ->
                     val deviceRepo = container.deviceRepository
                         ?: return@EditDeviceScreen Result.failure(
@@ -794,7 +794,7 @@ fun AppNavigation(
             AddDeviceScreen(
                 initialDeviceId = route.prefillId,
                 localDeviceId = localDeviceId,
-                onAdd = { deviceId, name, shareExistingFolders ->
+                onAdd = { deviceId, name, shareExistingFolders, introducer ->
                     val repo = container.deviceRepository
                         ?: return@AddDeviceScreen Result.failure(
                             Exception("Syncthing service not running")
@@ -810,8 +810,14 @@ fun AppNavigation(
                                     deviceID = deviceId,
                                     name = name,
                                     addresses = listOf("dynamic"),
+                                    introducer = introducer,
                                 )
                             )
+                        } else if (introducer) {
+                            val existing = devices.first { it.deviceID == deviceId }
+                            if (!existing.introducer) {
+                                repo.updateDevice(existing.copy(introducer = true))
+                            }
                         }
                         if (shareExistingFolders) {
                             folders.forEach { folder ->

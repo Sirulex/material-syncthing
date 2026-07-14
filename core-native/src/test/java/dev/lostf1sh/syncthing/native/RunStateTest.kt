@@ -26,6 +26,19 @@ class RunStateTest {
     }
 
     @Test
+    fun `SIGPIPE requests restart instead of reporting a crash`() {
+        val launcher = NativeLauncher(
+            binaryPath = java.io.File("missing"),
+            configDir = java.io.File("."),
+            cacheDir = java.io.File("."),
+            logFile = java.io.File("syncthing-test.log"),
+            contextProvider = { error("context is not used for exit-code interpretation") },
+        )
+
+        assertThat(launcher.interpretExitCode(141)).isEqualTo(RunState.Starting)
+    }
+
+    @Test
     fun `Paused carries reason`() {
         val state = RunState.Paused(reason = "Wi-Fi required")
         assertThat(state.reason).isEqualTo("Wi-Fi required")

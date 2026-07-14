@@ -113,7 +113,12 @@ class AppState {
     fun pushLog(line: String) { _logs.update { (it + line).takeLast(500) } }
 
     fun pushRecentChange(item: RecentChangeItem) {
-        _recentChanges.update { (listOf(item) + it).take(MAX_RECENT_CHANGES) }
+        // A client restart reconnects the disk event stream with since=0 so
+        // Syncthing can provide an initial history snapshot. Keep that useful
+        // replay without duplicating rows already retained across Starting.
+        _recentChanges.update { current ->
+            (listOf(item) + current.filterNot { it == item }).take(MAX_RECENT_CHANGES)
+        }
     }
 
     fun pushBandwidthSample(sample: BandwidthSample) {

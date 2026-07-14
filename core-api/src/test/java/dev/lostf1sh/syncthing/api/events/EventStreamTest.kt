@@ -13,6 +13,7 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicReference
 
 class EventStreamTest {
 
@@ -98,6 +99,57 @@ class EventStreamTest {
             assertThat(item.item).isEqualTo("img001.jpg")
             assertThat(item.action).isEqualTo("update")
             assertThat(item.error).isNull()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `disk stream requests dedicated endpoint and parses detected changes`() = runTest {
+        val requestedPath = AtomicReference<String>()
+        var firstCall = true
+        val engine = MockEngine { request ->
+            requestedPath.compareAndSet(null, request.url.encodedPath)
+            respond(
+                content = if (firstCall) {
+                    firstCall = false
+                    """[
+                        {
+                            "id": 11, "globalID": 20, "type": "LocalChangeDetected",
+                            "time": "2024-01-01T00:00:00Z",
+                            "data": {"folder": "photos", "path": "new.jpg", "action": "added"}
+                        },
+                        {
+                            "id": 12, "globalID": 21, "type": "RemoteChangeDetected",
+                            "time": "2024-01-01T00:00:01Z",
+                            "data": {"folderID": "docs", "path": "old.txt", "action": "deleted"}
+                        }
+                    ]"""
+                } else {
+                    "[]"
+                },
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val httpClient = HttpClient(engine) {
+            install(ContentNegotiation) { json(SyncthingClient.defaultJson) }
+        }
+        val stream = EventStream(
+            client = SyncthingClient(apiKey = "test", httpClient = httpClient),
+            source = EventStream.Source.DISK,
+        )
+
+        stream.events().test {
+            val local = awaitItem() as SyncthingEvent.LocalChangeDetected
+            assertThat(local.folderId).isEqualTo("photos")
+            assertThat(local.path).isEqualTo("new.jpg")
+            assertThat(local.action).isEqualTo("added")
+
+            val remote = awaitItem() as SyncthingEvent.RemoteChangeDetected
+            assertThat(remote.folderId).isEqualTo("docs")
+            assertThat(remote.path).isEqualTo("old.txt")
+            assertThat(remote.action).isEqualTo("deleted")
+            assertThat(requestedPath.get()).isEqualTo("/rest/events/disk")
             cancelAndIgnoreRemainingEvents()
         }
     }

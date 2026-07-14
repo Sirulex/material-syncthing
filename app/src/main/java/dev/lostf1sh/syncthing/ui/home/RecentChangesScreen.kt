@@ -134,7 +134,7 @@ private fun ChangeCard(
     var expanded by remember { mutableStateOf(false) }
 
     val actionColor = when (change.action.lowercase()) {
-        "delete" -> MaterialTheme.colorScheme.error
+        "delete", "deleted" -> MaterialTheme.colorScheme.error
         "update" -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.tertiary
     }

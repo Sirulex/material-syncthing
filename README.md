@@ -1,31 +1,5 @@
 <div align="center">
 
-# Material Syncthing
-
-**A modern, beautiful Android client for [Syncthing](https://syncthing.net/)**
-
-[![Build](https://img.shields.io/badge/build-passing-4ade80?logo=github)](https://github.com/lostf1sh/material-syncthing/actions)
-[![License](https://img.shields.io/badge/license-MPL--2.0-f59e0b?logo=mozilla)](LICENSE)
-[![Min SDK](https://img.shields.io/badge/minSdk-28(API%2028)-3b82f6?logo=android)](https://developer.android.com/about/versions/9)
-[![Target SDK](https://img.shields.io/badge/targetSdk-35(API%2035)-8b5cf6?logo=android)](https://developer.android.com/about/versions/15)
-[![Compose](https://img.shields.io/badge/Jetpack%20Compose-2026.03.00-4285f4?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
-
-<p align="center">
-  <img src=".github/screenshots/home_light.png" width="200" alt="Home"/>
-  <img src=".github/screenshots/folders_light.png" width="200" alt="Folders"/>
-  <img src=".github/screenshots/devices_light.png" width="200" alt="Devices"/>
-  <img src=".github/screenshots/settings_light.png" width="200" alt="Settings"/>
-</p>
-
-<p align="center">
-  <img src=".github/screenshots/home_dark.png" width="200" alt="Home Dark"/>
-  <img src=".github/screenshots/folder_detail_dark.png" width="200" alt="Folder Detail Dark"/>
-  <img src=".github/screenshots/insights_dark.png" width="200" alt="Insights Dark"/>
-  <img src=".github/screenshots/add_device_dark.png" width="200" alt="Add Device Dark"/>
-</p>
-
-</div>
-
 ---
 
 ## What is this?
@@ -38,30 +12,30 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 
 ## Features
 
-| | |
-|---|---|
-| 🎨 **Material 3 Expressive** | Wavy progress indicators, expressive motion, flexible top app bars, spring animations |
-| 📁 **Folder Management** | Create, edit, browse, pause/resume, repair index, ignore patterns |
-| 📱 **Device Management** | Add via ID or QR scan, share existing folders, connection status |
-| 🔄 **Real-time Sync** | Foreground `dataSync` service with persistent notification, boot-on-start |
-| 📊 **Insights Dashboard** | Bandwidth history, sync health, recent changes, conflict resolution |
-| 🔔 **Smart Notifications** | Error center, device connection alerts, sync completion |
-| 🔒 **Privacy First** | No analytics, no cloud — your data stays on your devices |
-| 🌙 **Dynamic Color** | Full Material You dynamic theming on Android 12+ |
+|                                   |                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| 🎨**Material 3 Expressive** | Wavy progress indicators, expressive motion, flexible top app bars, spring animations |
+| 📁**Folder Management**     | Create, edit, browse, pause/resume, repair index, ignore patterns                     |
+| 📱**Device Management**     | Add via ID or QR scan, share existing folders, connection status                      |
+| 🔄**Real-time Sync**        | Foreground`dataSync` service with persistent notification, boot-on-start            |
+| 📊**Insights Dashboard**    | Bandwidth history, sync health, recent changes, conflict resolution                   |
+| 🔔**Smart Notifications**   | Error center, device connection alerts, sync completion                               |
+| 🔒**Privacy First**         | No analytics, no cloud — your data stays on your devices                             |
+| 🌙**Dynamic Color**         | Full Material You dynamic theming on Android 12+                                      |
 
 ---
 
 ## Tech Stack
 
-| Layer | Tech |
-|---|---|
-| **UI** | Jetpack Compose + Material 3 Expressive (`1.5.0-alpha17`) |
-| **Architecture** | Coroutines + Flow, `StateFlow` for UI state, `SharedFlow` for events |
-| **Networking** | Ktor client + OkHttp + kotlinx.serialization |
-| **DI** | Manual composition (`AppContainer`) — no framework overhead |
-| **Persistence** | DataStore (preferences), Room-ready architecture |
-| **Native** | Embedded syncthing binary launched via ProcessBuilder |
-| **Build** | Gradle 9.x, Kotlin 2.2.10, Version Catalogs |
+| Layer                  | Tech                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| **UI**           | Jetpack Compose + Material 3 Expressive (`1.5.0-alpha17`)             |
+| **Architecture** | Coroutines + Flow,`StateFlow` for UI state, `SharedFlow` for events |
+| **Networking**   | Ktor client + OkHttp + kotlinx.serialization                            |
+| **DI**           | Manual composition (`AppContainer`) — no framework overhead          |
+| **Persistence**  | DataStore (preferences), Room-ready architecture                        |
+| **Native**       | Embedded syncthing binary launched via ProcessBuilder                   |
+| **Build**        | Gradle 9.x, Kotlin 2.2.10, Version Catalogs                             |
 
 ---
 
@@ -95,21 +69,25 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 ## Build
 
 **Debug APK:**
+
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
 **Release APK:**
+
 ```bash
 ./gradlew :app:assembleRelease
 ```
 
 **Install:**
+
 ```bash
 ./gradlew :app:installDebug
 ```
 
 **Run tests:**
+
 ```bash
 ./gradlew test
 ```
@@ -118,14 +96,14 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 
 ## Modules
 
-| Module | Purpose |
-|---|---|
-| `app` | Activity, navigation, screen composables, DI wiring |
-| `core-native` | Native binary launcher, config bootstrapper, run state |
-| `core-service` | Foreground service, notifications, boot receiver |
-| `core-api` | Ktor REST client, event stream parser, DTOs |
-| `data` | DataStore settings, repositories, sync constraints, health |
-| `ui-core` | Shared Compose theme (`SyncthingTheme`), expressive components, formatters |
+| Module           | Purpose                                                                      |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `app`          | Activity, navigation, screen composables, DI wiring                          |
+| `core-native`  | Native binary launcher, config bootstrapper, run state                       |
+| `core-service` | Foreground service, notifications, boot receiver                             |
+| `core-api`     | Ktor REST client, event stream parser, DTOs                                  |
+| `data`         | DataStore settings, repositories, sync constraints, health                   |
+| `ui-core`      | Shared Compose theme (`SyncthingTheme`), expressive components, formatters |
 
 ---
 
@@ -140,6 +118,7 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 ## Screenshots
 
 > To generate screenshots, run the app on an emulator or device and capture the following flows:
+>
 > - **Light**: Home overview → Folders list → Devices list → Settings
 > - **Dark**: Home overview → Folder detail → Insights → Add device
 >
@@ -158,15 +137,20 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 
 ---
 
-## Roadmap
+## Roadmap - Bugs
 
+- [x] crash wenn id mit kamera gescannt werden soll
+- [x] eigenen gerätename beim anklicken bearbeitbar machen
+- [x] haken bei wifi only und charging only unter sync conditions werden fehlerhaft angezeigt
+- [x] ein gerät als verteiler einstellbar machen, sodass verbundene geräte von diesem automatisch auch verbunden und akzeptiert werden
+- [x] syncthing crashed notification mit exit code 141 (unexpected exit) wenn das gerät das netzwerk wechselt (z.b. wlan zu mobilfunk)
+- [x] recent changes not working
+- [ ] export import settings
 - [ ] File conflict resolution UI
 - [ ] Ignore pattern validation
 - [ ] Folder versioning settings
 - [ ] Relay / discovery server config
 - [ ] Backup & restore settings
-- [ ] Wear OS companion tile
-- [ ] F-Droid release
 
 ---
 

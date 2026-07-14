@@ -49,6 +49,16 @@ data class Device(
     val numConnections: Int = 0,
 )
 
+/** Fields editable by the app when patching an existing device configuration. */
+@Serializable
+data class DeviceUpdate(
+    val name: String,
+    val addresses: List<String>,
+    val compression: String,
+    val introducer: Boolean,
+    val autoAcceptFolders: Boolean,
+)
+
 @Serializable
 data class FolderStatus(
     val globalBytes: Long = 0,

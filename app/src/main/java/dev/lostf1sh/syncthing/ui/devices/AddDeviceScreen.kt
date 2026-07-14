@@ -65,7 +65,7 @@ import kotlinx.coroutines.launch
 fun AddDeviceScreen(
     initialDeviceId: String = "",
     localDeviceId: String? = null,
-    onAdd: suspend (deviceId: String, name: String, shareExistingFolders: Boolean) -> Result<Unit>,
+    onAdd: suspend (deviceId: String, name: String, shareExistingFolders: Boolean, introducer: Boolean) -> Result<Unit>,
     onScanQr: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -77,6 +77,7 @@ fun AddDeviceScreen(
     var deviceId by remember { mutableStateOf(initialDeviceId) }
     var deviceName by remember { mutableStateOf("") }
     var shareExistingFolders by remember { mutableStateOf(true) }
+    var introducer by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var showingLocalQr by rememberSaveable { mutableStateOf(false) }
     val isValid = DeviceIdValidator.isValid(deviceId)
@@ -116,6 +117,7 @@ fun AddDeviceScreen(
                                 deviceId.trim().uppercase(),
                                 deviceName.trim(),
                                 shareExistingFolders,
+                                introducer,
                             )
                             isLoading = false
                             result.fold(
@@ -236,6 +238,20 @@ fun AddDeviceScreen(
                     Checkbox(
                         checked = shareExistingFolders,
                         onCheckedChange = { shareExistingFolders = it },
+                        enabled = !isLoading,
+                    )
+                },
+            )
+
+            ListItem(
+                headlineContent = { Text("Use as Introducer") },
+                supportingContent = {
+                    Text("Automatically add devices this device shares mutual folders with.")
+                },
+                trailingContent = {
+                    Checkbox(
+                        checked = introducer,
+                        onCheckedChange = { introducer = it },
                         enabled = !isLoading,
                     )
                 },

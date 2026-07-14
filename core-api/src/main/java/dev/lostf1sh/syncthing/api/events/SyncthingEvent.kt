@@ -87,6 +87,28 @@ sealed interface SyncthingEvent {
         val error: String?,
     ) : SyncthingEvent
 
+    sealed interface ChangeDetected : SyncthingEvent {
+        val folderId: String
+        val path: String
+        val action: String
+    }
+
+    data class LocalChangeDetected(
+        override val id: Long,
+        override val time: String,
+        override val folderId: String,
+        override val path: String,
+        override val action: String,
+    ) : ChangeDetected
+
+    data class RemoteChangeDetected(
+        override val id: Long,
+        override val time: String,
+        override val folderId: String,
+        override val path: String,
+        override val action: String,
+    ) : ChangeDetected
+
     // --- Config events ---
     data class ConfigSaved(
         override val id: Long,

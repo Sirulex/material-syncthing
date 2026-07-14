@@ -121,6 +121,16 @@ class SettingsStore(private val context: Context) {
     suspend fun setSchedulerEndMinute(value: Int) = set(Keys.SCHEDULER_END_MINUTE, value)
     suspend fun setFolderConditions(json: String) = set(Keys.FOLDER_CONDITIONS, json)
 
+    /** Updates one folder without overwriting condition changes written concurrently. */
+    suspend fun setFolderCondition(folderId: String, condition: FolderCondition) {
+        context.dataStore.edit { prefs ->
+            val current = parseFolderConditions(prefs[Keys.FOLDER_CONDITIONS] ?: "{}")
+            prefs[Keys.FOLDER_CONDITIONS] = serializeFolderConditions(
+                current + (folderId to condition),
+            )
+        }
+    }
+
     private companion object {
         private const val TAG = "SettingsStore"
     }

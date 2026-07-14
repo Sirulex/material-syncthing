@@ -76,8 +76,6 @@ class CollectorManager(
             }
         }
 
-        h.eventRepository.start(this)
-
         launch {
             h.eventRepository.events.collect { event ->
                 notificationPolicy.onEvent(event)
@@ -126,15 +124,20 @@ class CollectorManager(
                 appState.pushRecentChange(
                     RecentChangeItem(
                         folderId = event.folderId,
-                        path = event.item,
+                        path = event.path,
                         action = event.action,
                         timestamp = event.time,
-                        error = event.error,
+                        error = null,
                     )
                 )
                 scheduleConflictRefresh()
             }
         }
+
+        // Start upstream only after all SharedFlow subscribers above have been
+        // installed. This preserves the initial buffered event batch returned
+        // for since=0, which supplies the first Recent Changes snapshot.
+        h.eventRepository.start(this)
 
         launch {
             while (coroutineContext.isActive) {

@@ -195,9 +195,11 @@ private fun QrCameraPreview(
     val delivered = remember { AtomicBoolean(false) }
     val analyzing = remember { AtomicBoolean(false) }
     val invalidReported = remember { AtomicBoolean(false) }
+    val active = remember { AtomicBoolean(true) }
 
     DisposableEffect(Unit) {
         onDispose {
+            active.set(false)
             scanner.close()
             analysisExecutor.shutdown()
         }
@@ -206,28 +208,30 @@ private fun QrCameraPreview(
     DisposableEffect(lifecycleOwner) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
         val listener = Runnable {
-            val cameraProvider = providerFuture.get()
-            val preview = Preview.Builder().build().apply {
-                setSurfaceProvider(previewView.surfaceProvider)
-            }
-            val analyzer = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .apply {
-                    setAnalyzer(analysisExecutor) { imageProxy ->
-                        scanImageProxy(
-                            scanner = scanner,
-                            imageProxy = imageProxy,
-                            analyzing = analyzing,
-                            delivered = delivered,
-                            invalidReported = invalidReported,
-                            onDeviceIdScanned = currentOnDeviceIdScanned,
-                            onInvalidScan = currentOnInvalidScan,
-                        )
-                    }
-                }
-
+            if (!active.get()) return@Runnable
             try {
+                val cameraProvider = providerFuture.get()
+                val preview = Preview.Builder().build().apply {
+                    setSurfaceProvider(previewView.surfaceProvider)
+                }
+                val analyzer = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .apply {
+                        setAnalyzer(analysisExecutor) { imageProxy ->
+                            scanImageProxy(
+                                scanner = scanner,
+                                imageProxy = imageProxy,
+                                analyzing = analyzing,
+                                delivered = delivered,
+                                invalidReported = invalidReported,
+                                active = active,
+                                onDeviceIdScanned = currentOnDeviceIdScanned,
+                                onInvalidScan = currentOnInvalidScan,
+                            )
+                        }
+                    }
+
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
@@ -280,10 +284,11 @@ private fun scanImageProxy(
     analyzing: AtomicBoolean,
     delivered: AtomicBoolean,
     invalidReported: AtomicBoolean,
+    active: AtomicBoolean,
     onDeviceIdScanned: (String) -> Unit,
     onInvalidScan: () -> Unit,
 ) {
-    if (delivered.get() || !analyzing.compareAndSet(false, true)) {
+    if (!active.get() || delivered.get() || !analyzing.compareAndSet(false, true)) {
         imageProxy.close()
         return
     }
@@ -294,24 +299,36 @@ private fun scanImageProxy(
         return
     }
     val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-    scanner.process(image)
-        .addOnSuccessListener { barcodes ->
-            val scannedId = barcodes
-                .asSequence()
-                .mapNotNull { it.rawValue }
-                .mapNotNull(DeviceIdValidator::extract)
-                .firstOrNull()
-            if (scannedId != null && delivered.compareAndSet(false, true)) {
-                onDeviceIdScanned(scannedId)
-            } else if (barcodes.isNotEmpty() && invalidReported.compareAndSet(false, true)) {
-                onInvalidScan()
+    try {
+        scanner.process(image)
+            .addOnCompleteListener { task ->
+                // Release CameraX's frame before navigating away. Navigating from a
+                // success callback while ImageAnalysis still owns this frame races
+                // screen disposal, analyzer shutdown, and camera unbinding.
+                analyzing.set(false)
+                imageProxy.close()
+
+                if (!active.get()) return@addOnCompleteListener
+                if (!task.isSuccessful) {
+                    Log.d("QrScannerScreen", "QR scan failed: ${task.exception?.message}")
+                    return@addOnCompleteListener
+                }
+
+                val barcodes = task.result.orEmpty()
+                val scannedId = barcodes
+                    .asSequence()
+                    .mapNotNull { it.rawValue }
+                    .mapNotNull(DeviceIdValidator::extract)
+                    .firstOrNull()
+                if (scannedId != null && delivered.compareAndSet(false, true)) {
+                    onDeviceIdScanned(scannedId)
+                } else if (barcodes.isNotEmpty() && invalidReported.compareAndSet(false, true)) {
+                    onInvalidScan()
+                }
             }
-        }
-        .addOnFailureListener { error ->
-            Log.d("QrScannerScreen", "QR scan failed: ${error.message}")
-        }
-        .addOnCompleteListener {
-            analyzing.set(false)
-            imageProxy.close()
-        }
+    } catch (e: Exception) {
+        analyzing.set(false)
+        imageProxy.close()
+        Log.d("QrScannerScreen", "Could not submit camera frame", e)
+    }
 }
