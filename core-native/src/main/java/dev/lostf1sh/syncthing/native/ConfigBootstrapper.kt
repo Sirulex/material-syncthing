@@ -67,7 +67,7 @@ class ConfigBootstrapper(private val configDir: File) {
      * Patches config.xml after initial generation.
      * Catfriend1 does this in ConfigXml.generateConfig() and updateIfNeeded().
      */
-    fun patchConfig(localDeviceId: String?) {
+    fun patchConfig(localDeviceId: String?, preferredDeviceName: String? = null) {
         if (!configFile.exists()) {
             Log.w(TAG, "Config file missing, cannot patch")
             return
@@ -117,11 +117,19 @@ class ConfigBootstrapper(private val configDir: File) {
                     val element = node as org.w3c.dom.Element
                     if (element.getAttribute("id") == localDeviceId) {
                         val currentName = element.getAttribute("name")
-                        // A name changed through Syncthing's API is already persisted
-                        // in config.xml. Only provide a device-model default when the
-                        // generated config did not contain a name yet.
-                        if (currentName.isNullOrBlank()) {
-                            element.setAttribute("name", Build.MODEL)
+                        // Apply the onboarding choice while the generated/model
+                        // default is still in use. A later name changed through
+                        // Syncthing's API must remain authoritative.
+                        val preferred = preferredDeviceName?.trim().orEmpty()
+                        val generatedDefault = Build.MODEL.orEmpty()
+                        val nextName = when {
+                            preferred.isNotBlank() &&
+                                (currentName.isBlank() || currentName == generatedDefault) -> preferred
+                            currentName.isBlank() && generatedDefault.isNotBlank() -> generatedDefault
+                            else -> null
+                        }
+                        if (nextName != null && nextName != currentName) {
+                            element.setAttribute("name", nextName)
                             changed = true
                         }
                     }

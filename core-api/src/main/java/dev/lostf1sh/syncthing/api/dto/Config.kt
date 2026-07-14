@@ -6,6 +6,9 @@ import kotlinx.serialization.Serializable
 data class Versioning(
     val type: String = "",
     val params: Map<String, String> = emptyMap(),
+    val cleanupIntervalS: Int = 3600,
+    val fsPath: String = "",
+    val fsType: String = "basic",
 )
 
 @Serializable
@@ -57,6 +60,39 @@ data class DeviceUpdate(
     val compression: String,
     val introducer: Boolean,
     val autoAcceptFolders: Boolean,
+)
+
+/** Fields editable by the app when patching an existing folder configuration. */
+@Serializable
+data class FolderUpdate(
+    val label: String,
+    val path: String,
+    val type: String,
+    val devices: List<FolderDevice>,
+    val versioning: Versioning?,
+)
+
+@Serializable
+data class ConnectivityOptions(
+    val listenAddresses: List<String> = listOf("default"),
+    val globalAnnounceServers: List<String> = listOf("default"),
+    val globalAnnounceEnabled: Boolean = true,
+    val localAnnounceEnabled: Boolean = true,
+    val relaysEnabled: Boolean = true,
+)
+
+@Serializable
+data class ConnectivityOptionsUpdate(
+    val listenAddresses: List<String>,
+    val globalAnnounceServers: List<String>,
+    val globalAnnounceEnabled: Boolean,
+    val localAnnounceEnabled: Boolean,
+    val relaysEnabled: Boolean,
+)
+
+@Serializable
+data class RestartRequired(
+    val requiresRestart: Boolean = false,
 )
 
 @Serializable

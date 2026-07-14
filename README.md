@@ -137,20 +137,12 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 
 ---
 
-## Roadmap - Bugs
+## Known follow-up work
 
-- [x] crash wenn id mit kamera gescannt werden soll
-- [x] eigenen gerätename beim anklicken bearbeitbar machen
-- [x] haken bei wifi only und charging only unter sync conditions werden fehlerhaft angezeigt
-- [x] ein gerät als verteiler einstellbar machen, sodass verbundene geräte von diesem automatisch auch verbunden und akzeptiert werden
-- [x] syncthing crashed notification mit exit code 141 (unexpected exit) wenn das gerät das netzwerk wechselt (z.b. wlan zu mobilfunk)
-- [x] recent changes not working
-- [ ] export import settings
-- [ ] File conflict resolution UI
-- [ ] Ignore pattern validation
-- [ ] Folder versioning settings
-- [ ] Relay / discovery server config
-- [ ] Backup & restore settings
+- Native Syncthing binaries are intentionally not committed. A release pipeline still needs to run `core-native/build-syncthing.sh` for all supported ABIs before packaging.
+- Configuration backups restore app preferences, folders, devices, and Syncthing options on the same device. Device identity (`cert.pem` / `key.pem`) migration is intentionally not implemented.
+- Android cloud document providers do not expose filesystem paths usable by the native Syncthing process. Primary storage and UUID-based removable volumes are supported; virtual providers would require a separate copy/cache layer.
+- External file versioning requires an executable command supplied by the user and still needs device-specific validation on Android.
 
 ---
 

@@ -157,10 +157,14 @@ class CollectorManager(
             while (coroutineContext.isActive) {
                 try {
                     appState.setFolderStats(h.client.folderStats())
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                 }
                 try {
                     appState.setDeviceStats(h.client.deviceStats())
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                 }
                 delay(30_000)
@@ -287,6 +291,8 @@ class CollectorManager(
     private suspend fun enforceFolderConditions(h: ClientHandles) {
         val raw = try {
             settingsStore.folderConditions.first()
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             return
         }
@@ -307,11 +313,15 @@ class CollectorManager(
             if (shouldPause && !folder.paused) {
                 try {
                     h.client.pauseFolder(folder.id)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                 }
             } else if (!shouldPause && folder.paused) {
                 try {
                     h.client.resumeFolder(folder.id)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                 }
             }
@@ -369,6 +379,8 @@ class CollectorManager(
                     val s = h.folderRepository.folderStatus(folder.id)
                     statuses[folder.id] = s
                     appState.updateFolderState(folder.id, s.state)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                 }
                 for (device in folder.devices) {
@@ -378,6 +390,8 @@ class CollectorManager(
                             folderId = folder.id,
                             deviceId = device.deviceID,
                         )
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (_: Exception) {
                     }
                 }

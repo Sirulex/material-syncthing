@@ -78,15 +78,18 @@ fun AddFolderScreen(
     ) { uri: Uri? ->
         uri?.let {
             val docId = DocumentsContract.getTreeDocumentId(it)
-            folderPath = if (docId.startsWith("primary:")) {
-                "${Environment.getExternalStorageDirectory().absolutePath}/${docId.removePrefix("primary:")}"
+            val resolved = documentTreePath(
+                docId,
+                Environment.getExternalStorageDirectory().absolutePath,
+            )
+            if (resolved != null) {
+                folderPath = resolved
             } else {
                 scope.launch {
                     snackbarHostState.showSnackbar(
-                        "SD card / external storage paths must be entered manually"
+                        "This storage provider does not expose a filesystem path"
                     )
                 }
-                ""
             }
         }
     }

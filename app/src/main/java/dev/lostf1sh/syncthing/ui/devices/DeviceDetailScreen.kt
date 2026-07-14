@@ -19,11 +19,9 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -318,13 +316,6 @@ fun DeviceDetailScreen(
                     )
                 }
             }
-
-            Spacer(Modifier.height(8.dp))
-            AssistChip(
-                onClick = { },
-                label = { Text("Learn more") },
-                leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
-            )
 
             // Can't remove the local device from itself.
             if (onRemove != null && !isLocal) {

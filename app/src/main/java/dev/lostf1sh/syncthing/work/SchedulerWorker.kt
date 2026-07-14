@@ -13,6 +13,7 @@ import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SyncConstraints
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -43,6 +44,8 @@ class SchedulerWorker(
                 }
             }
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w("SchedulerWorker", "Could not apply scheduler decision", e)
             Result.retry()

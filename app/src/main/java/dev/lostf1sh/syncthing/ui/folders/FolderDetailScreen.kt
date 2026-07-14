@@ -23,9 +23,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -333,13 +331,6 @@ fun FolderDetailScreen(
                     },
                 )
             }
-
-            Spacer(Modifier.height(8.dp))
-            AssistChip(
-                onClick = { },
-                label = { Text("Folder help") },
-                leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null) },
-            )
 
             Spacer(Modifier.height(24.dp))
 

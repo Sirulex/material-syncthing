@@ -6,6 +6,7 @@ import dev.lostf1sh.syncthing.data.SettingsStore
 import dev.lostf1sh.syncthing.data.SyncConstraints
 import dev.lostf1sh.syncthing.native.NativeLauncher
 import dev.lostf1sh.syncthing.work.SchedulerWorker
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +42,8 @@ class AppContainer(private val appContext: Context) {
         appScope.launch(Dispatchers.IO) {
             try {
                 appState.setLocalDeviceId(nativeLauncher.getDeviceId())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
                 appState.setDiagnostic("Could not read local device ID: $detail")

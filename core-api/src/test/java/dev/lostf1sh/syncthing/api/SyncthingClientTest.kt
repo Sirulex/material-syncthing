@@ -3,6 +3,8 @@ package dev.lostf1sh.syncthing.api
 import com.google.common.truth.Truth.assertThat
 import dev.lostf1sh.syncthing.api.dto.Device
 import dev.lostf1sh.syncthing.api.dto.DeviceUpdate
+import dev.lostf1sh.syncthing.api.dto.ConnectivityOptions
+import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.PingResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -176,5 +178,46 @@ class SyncthingClientTest {
 
         assertThat(encoded).contains("\"introducer\":false")
         assertThat(encoded).contains("\"autoAcceptFolders\":false")
+    }
+
+    @Test
+    fun `folder update patches existing configuration`() = runTest {
+        var method: HttpMethod? = null
+        val engine = MockEngine { request ->
+            method = request.method
+            respond(content = "", status = HttpStatusCode.OK)
+        }
+        val client = SyncthingClient(
+            apiKey = "test",
+            httpClient = HttpClient(engine) {
+                install(ContentNegotiation) { json(SyncthingClient.defaultJson) }
+            },
+        )
+
+        client.updateFolder(Folder(id = "photos", path = "/sync/photos"))
+
+        assertThat(method).isEqualTo(HttpMethod.Patch)
+    }
+
+    @Test
+    fun `connectivity update patches options endpoint`() = runTest {
+        var method: HttpMethod? = null
+        var path: String? = null
+        val engine = MockEngine { request ->
+            method = request.method
+            path = request.url.encodedPath
+            respond(content = "", status = HttpStatusCode.OK)
+        }
+        val client = SyncthingClient(
+            apiKey = "test",
+            httpClient = HttpClient(engine) {
+                install(ContentNegotiation) { json(SyncthingClient.defaultJson) }
+            },
+        )
+
+        client.updateConnectivityOptions(ConnectivityOptions())
+
+        assertThat(method).isEqualTo(HttpMethod.Patch)
+        assertThat(path).isEqualTo("/rest/config/options")
     }
 }
