@@ -13,3 +13,11 @@
 
 # ZXing
 -keep class com.google.zxing.** { *; }
+
+# WorkManager opens its generated Room database through reflection. R8 can
+# otherwise remove the no-arg constructor before Application.onCreate().
+-keep class androidx.work.impl.WorkDatabase_Impl { *; }
+
+# Firebase component discovery instantiates ML Kit registrars by the class
+# names stored in manifest metadata.
+-keep class * implements com.google.firebase.components.ComponentRegistrar { *; }
