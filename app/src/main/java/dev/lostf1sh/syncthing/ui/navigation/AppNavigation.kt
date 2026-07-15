@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -25,6 +26,7 @@ import dev.lostf1sh.syncthing.api.dto.ConnectionInfo
 import dev.lostf1sh.syncthing.api.dto.Folder
 import dev.lostf1sh.syncthing.api.dto.FolderDevice
 import dev.lostf1sh.syncthing.api.dto.FolderStatus
+import dev.lostf1sh.syncthing.api.dto.PendingFolder
 import dev.lostf1sh.syncthing.native.RunState
 import dev.lostf1sh.syncthing.service.SyncthingService
 import dev.lostf1sh.syncthing.api.dto.Device as DeviceDto
@@ -75,6 +77,25 @@ import dev.lostf1sh.syncthing.ui.settings.ProfilesScreen
 import dev.lostf1sh.syncthing.ui.settings.SettingsScreen
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.ui.platform.LocalContext
+
+internal fun nextPendingFolderOffer(
+    pendingFolders: Map<String, PendingFolder>,
+    devices: List<DeviceDto>,
+    handledFolderIds: Set<String>,
+): PendingFolderUi? = pendingFolders.asSequence()
+    .filter { (folderId, _) -> folderId !in handledFolderIds }
+    .mapNotNull { (folderId, pending) ->
+        pending.offeredBy.entries.firstOrNull()?.let { (deviceId, info) ->
+            val deviceName = devices.find { it.deviceID == deviceId }?.name.orEmpty()
+            PendingFolderUi(
+                folderId = folderId,
+                label = info.label,
+                offeredByDevice = deviceId,
+                offeredByName = deviceName,
+            )
+        }
+    }
+    .firstOrNull()
 
 @Composable
 fun AppNavigation(
@@ -171,67 +192,59 @@ fun AppNavigation(
         pendingShortcut.value = null
     }
 
-    // Surface the first pending offer as a dialog. Dismissed offers stay
-    // dismissed for this session via rememberSaveable in practice — here we
-    // drop anything the user has already acted on.
-    var dismissedOffers by remember { mutableStateOf(emptySet<String>()) }
-    val pendingFolder: PendingFolderUi? = remember(pendingFoldersMap, devices, dismissedOffers) {
-        pendingFoldersMap.entries
-            .firstOrNull { (folderId, _) -> folderId !in dismissedOffers }
-            ?.let { (folderId, pending) ->
-                val (deviceId, info) = pending.offeredBy.entries.firstOrNull() ?: return@let null
-                val deviceName = devices.find { it.deviceID == deviceId }?.name ?: ""
-                PendingFolderUi(
-                    folderId = folderId,
-                    label = info.label,
-                    offeredByDevice = deviceId,
-                    offeredByName = deviceName,
-                )
-            }
+    // Process each remote folder ID once and surface the next offer only after
+    // the current folder was accepted or ignored.
+    var handledFolderIds by remember { mutableStateOf(emptySet<String>()) }
+    val pendingFolder = remember(pendingFoldersMap, devices, handledFolderIds) {
+        nextPendingFolderOffer(pendingFoldersMap, devices, handledFolderIds)
     }
 
     val done = onboardingDone == true
 
     if (done) {
         pendingFolder?.let { pf ->
-            AcceptFolderDialog(
-                pending = pf,
-                onAccept = { path ->
-                    scope.launch {
-                        val result = acceptPendingFolder(
-                            client = container.client,
-                            folder = Folder(
-                                id = pf.folderId,
-                                label = pf.label,
-                                path = path,
-                                devices = listOf(FolderDevice(deviceID = pf.offeredByDevice)),
-                            ),
-                            offeredByDeviceId = pf.offeredByDevice,
-                        )
-                        if (result.isSuccess) {
-                            dismissedOffers = dismissedOffers + pf.folderId
-                        } else {
-                            val detail = result.exceptionOrNull()?.message ?: "Unknown error"
-                            appState.setDiagnostic("Could not accept folder: $detail")
+            // A new composition subtree gives every offer its own sheet,
+            // launcher and destination-path state.
+            key(pf.offerKey) {
+                AcceptFolderDialog(
+                    pending = pf,
+                    onAccept = { path ->
+                        scope.launch {
+                            val result = acceptPendingFolder(
+                                client = container.client,
+                                folder = Folder(
+                                    id = pf.folderId,
+                                    label = pf.label,
+                                    path = path,
+                                    devices = listOf(FolderDevice(deviceID = pf.offeredByDevice)),
+                                ),
+                                offeredByDeviceId = pf.offeredByDevice,
+                            )
+                            if (result.isSuccess) {
+                                handledFolderIds = handledFolderIds + pf.folderId
+                            } else {
+                                val detail = result.exceptionOrNull()?.message ?: "Unknown error"
+                                appState.setDiagnostic("Could not accept folder: $detail")
+                            }
                         }
-                    }
-                },
-                onDismiss = {
-                    scope.launch {
-                        val result = dismissPendingFolder(
-                            client = container.client,
-                            folderId = pf.folderId,
-                            offeredByDeviceId = pf.offeredByDevice,
-                        )
-                        if (result.isSuccess) {
-                            dismissedOffers = dismissedOffers + pf.folderId
-                        } else {
-                            val detail = result.exceptionOrNull()?.message ?: "Unknown error"
-                            appState.setDiagnostic("Could not dismiss folder offer: $detail")
+                    },
+                    onDismiss = {
+                        scope.launch {
+                            val result = dismissPendingFolder(
+                                client = container.client,
+                                folderId = pf.folderId,
+                                offeredByDeviceId = pf.offeredByDevice,
+                            )
+                            if (result.isSuccess) {
+                                handledFolderIds = handledFolderIds + pf.folderId
+                            } else {
+                                val detail = result.exceptionOrNull()?.message ?: "Unknown error"
+                                appState.setDiagnostic("Could not dismiss folder offer: $detail")
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         }
     }
 

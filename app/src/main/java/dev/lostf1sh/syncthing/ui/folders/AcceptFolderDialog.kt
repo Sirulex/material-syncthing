@@ -40,6 +40,14 @@ data class PendingFolderUi(
     val label: String,
     val offeredByDevice: String,
     val offeredByName: String,
+) {
+    val offerKey: PendingFolderOfferKey
+        get() = PendingFolderOfferKey(folderId, offeredByDevice)
+}
+
+data class PendingFolderOfferKey(
+    val folderId: String,
+    val deviceId: String,
 )
 
 /**
@@ -66,7 +74,10 @@ fun AcceptFolderDialog(
     onDismiss: () -> Unit,
 ) {
     val defaultPath = "${Environment.getExternalStorageDirectory().absolutePath}/${pending.label.ifBlank { pending.folderId }}"
-    var selectedPath by remember { mutableStateOf(defaultPath) }
+    // This composable remains at the same call site while pending offers are
+    // processed. Key the state to the offer so the destination selected for
+    // one remote folder can never leak into the next folder's dialog.
+    var selectedPath by remember(pending.offerKey) { mutableStateOf(defaultPath) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val folderPicker = rememberLauncherForActivityResult(
