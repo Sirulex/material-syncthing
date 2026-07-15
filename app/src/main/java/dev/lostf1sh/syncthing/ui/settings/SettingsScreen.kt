@@ -98,8 +98,8 @@ fun SettingsScreen(
                         ?: error("Could not open the selected document")
                 }
             }.fold(
-                onSuccess = { snackbarHostState.showSnackbar("Settings exported") },
-                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Settings export failed") },
+                onSuccess = { snackbarHostState.showSnackbar("App settings exported") },
+                onFailure = { snackbarHostState.showSnackbar(it.message ?: "App settings export failed") },
             )
         }
     }
@@ -115,8 +115,8 @@ fun SettingsScreen(
                 }
                 settingsStore.importFromJson(json)
             }.fold(
-                onSuccess = { count -> snackbarHostState.showSnackbar("Imported $count settings") },
-                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Settings import failed") },
+                onSuccess = { count -> snackbarHostState.showSnackbar("Imported $count app settings") },
+                onFailure = { snackbarHostState.showSnackbar(it.message ?: "App settings import failed") },
             )
         }
     }
@@ -135,11 +135,11 @@ fun SettingsScreen(
                             } ?: error("Could not open the selected document")
                         }
                     }.fold(
-                        onSuccess = { snackbarHostState.showSnackbar("Configuration backup created") },
-                        onFailure = { snackbarHostState.showSnackbar(it.message ?: "Backup failed") },
+                        onSuccess = { snackbarHostState.showSnackbar("Syncthing settings exported") },
+                        onFailure = { snackbarHostState.showSnackbar(it.message ?: "Syncthing settings export failed") },
                     )
                 },
-                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Backup failed") },
+                onFailure = { snackbarHostState.showSnackbar(it.message ?: "Syncthing settings export failed") },
             )
         }
     }
@@ -417,14 +417,14 @@ fun SettingsScreen(
                             HorizontalDivider()
                         }
                         ListItem(
-                            headlineContent = { Text("Export settings") },
+                            headlineContent = { Text("Export App settings") },
                             supportingContent = { Text("Backup app preferences as JSON") },
                             modifier = Modifier.clickable { exportLauncher.launch("syncthing-settings.json") },
                             colors = transparentListItemColors(),
                         )
                         HorizontalDivider()
                         ListItem(
-                            headlineContent = { Text("Import settings") },
+                            headlineContent = { Text("Import App settings") },
                             supportingContent = { Text("Restore app preferences from JSON") },
                             modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json")) },
                             colors = transparentListItemColors(),
@@ -432,7 +432,7 @@ fun SettingsScreen(
                         HorizontalDivider()
                         if (onCreateConfigurationBackup != null) {
                             ListItem(
-                                headlineContent = { Text("Backup configuration") },
+                                headlineContent = { Text("Export Syncthing settings") },
                                 supportingContent = { Text("Save app settings, folders, devices and Syncthing options") },
                                 modifier = Modifier.clickable {
                                     backupLauncher.launch("material-syncthing-backup.json")
@@ -443,8 +443,8 @@ fun SettingsScreen(
                         }
                         if (onRestoreConfigurationBackup != null) {
                             ListItem(
-                                headlineContent = { Text("Restore configuration") },
-                                supportingContent = { Text("Restore a backup created on this device") },
+                                headlineContent = { Text("Import Syncthing settings") },
+                                supportingContent = { Text("Import Syncthing settings exported on this device") },
                                 modifier = Modifier.clickable {
                                     restoreLauncher.launch(arrayOf("application/json"))
                                 },
@@ -524,7 +524,7 @@ fun SettingsScreen(
     pendingConfigurationRestore?.let { document ->
         AlertDialog(
             onDismissRequest = { pendingConfigurationRestore = null },
-            title = { Text("Restore configuration?") },
+            title = { Text("Import Syncthing settings?") },
             text = {
                 Text("This replaces folders, devices and Syncthing network settings, then restarts Syncthing. The backup must belong to this device.")
             },
@@ -534,8 +534,8 @@ fun SettingsScreen(
                     val restore = onRestoreConfigurationBackup ?: return@TextButton
                     scope.launch {
                         restore(document).fold(
-                            onSuccess = { snackbarHostState.showSnackbar("Configuration restored") },
-                            onFailure = { snackbarHostState.showSnackbar(it.message ?: "Restore failed") },
+                            onSuccess = { snackbarHostState.showSnackbar("Syncthing settings imported") },
+                            onFailure = { snackbarHostState.showSnackbar(it.message ?: "Syncthing settings import failed") },
                         )
                     }
                 }) { Text("Restore") }
