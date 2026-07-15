@@ -23,7 +23,7 @@ val releaseSigningConfigured = listOf(
 android {
     // Keep generated R and BuildConfig classes in the same package as the app
     // sources. The install identity remains dev.sirulex.syncthing below.
-    namespace = "dev.lostf1sh.syncthing"
+    namespace = "dev.sirulex.syncthing"
     compileSdk = 36
 
     defaultConfig {

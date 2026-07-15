@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.lostf1sh.syncthing.core.nativelib"
+    namespace = "dev.sirulex.syncthing.core.nativelib"
     compileSdk = 36
 
     defaultConfig {

@@ -41,11 +41,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <intent-filter>
-                <action android:name="dev.lostf1sh.syncthing.shortcut.START" />
-                <action android:name="dev.lostf1sh.syncthing.shortcut.RESCAN_ALL" />
-                <action android:name="dev.lostf1sh.syncthing.shortcut.PAUSE" />
-                <action android:name="dev.lostf1sh.syncthing.shortcut.ERROR_CENTER" />
-                <action android:name="dev.lostf1sh.syncthing.shortcut.INSIGHTS" />
+                <action android:name="dev.sirulex.syncthing.shortcut.START" />
+                <action android:name="dev.sirulex.syncthing.shortcut.RESCAN_ALL" />
+                <action android:name="dev.sirulex.syncthing.shortcut.PAUSE" />
+                <action android:name="dev.sirulex.syncthing.shortcut.ERROR_CENTER" />
+                <action android:name="dev.sirulex.syncthing.shortcut.INSIGHTS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <intent-filter>
@@ -70,12 +70,12 @@
         </activity>
 
         <service
-            android:name="dev.lostf1sh.syncthing.service.SyncthingService"
+            android:name="dev.sirulex.syncthing.service.SyncthingService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <service
-            android:name="dev.lostf1sh.syncthing.tile.SyncthingTileService"
+            android:name="dev.sirulex.syncthing.tile.SyncthingTileService"
             android:exported="true"
             android:icon="@drawable/ic_launcher_monochrome"
             android:label="@string/app_name"
@@ -96,7 +96,7 @@
         </provider>
 
         <receiver
-            android:name="dev.lostf1sh.syncthing.service.BootReceiver"
+            android:name="dev.sirulex.syncthing.service.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

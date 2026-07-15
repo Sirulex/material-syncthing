@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.lostf1sh.syncthing.core.api"
+    namespace = "dev.sirulex.syncthing.core.api"
     compileSdk = 36
 
     defaultConfig {

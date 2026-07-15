@@ -8,9 +8,9 @@
         android:shortcutShortLabel="@string/shortcut_start"
         android:shortcutLongLabel="@string/shortcut_start_long">
         <intent
-            android:action="dev.lostf1sh.syncthing.shortcut.START"
+            android:action="dev.sirulex.syncthing.shortcut.START"
             android:targetPackage="dev.sirulex.syncthing"
-            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+            android:targetClass="dev.sirulex.syncthing.MainActivity" />
     </shortcut>
 
     <shortcut
@@ -20,9 +20,9 @@
         android:shortcutShortLabel="@string/shortcut_rescan_all"
         android:shortcutLongLabel="@string/shortcut_rescan_all_long">
         <intent
-            android:action="dev.lostf1sh.syncthing.shortcut.RESCAN_ALL"
+            android:action="dev.sirulex.syncthing.shortcut.RESCAN_ALL"
             android:targetPackage="dev.sirulex.syncthing"
-            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+            android:targetClass="dev.sirulex.syncthing.MainActivity" />
     </shortcut>
 
     <shortcut
@@ -32,9 +32,9 @@
         android:shortcutShortLabel="@string/shortcut_pause"
         android:shortcutLongLabel="@string/shortcut_pause_long">
         <intent
-            android:action="dev.lostf1sh.syncthing.shortcut.PAUSE"
+            android:action="dev.sirulex.syncthing.shortcut.PAUSE"
             android:targetPackage="dev.sirulex.syncthing"
-            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+            android:targetClass="dev.sirulex.syncthing.MainActivity" />
     </shortcut>
 
     <shortcut
@@ -44,9 +44,9 @@
         android:shortcutShortLabel="@string/shortcut_errors"
         android:shortcutLongLabel="@string/shortcut_errors_long">
         <intent
-            android:action="dev.lostf1sh.syncthing.shortcut.ERROR_CENTER"
+            android:action="dev.sirulex.syncthing.shortcut.ERROR_CENTER"
             android:targetPackage="dev.sirulex.syncthing"
-            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+            android:targetClass="dev.sirulex.syncthing.MainActivity" />
     </shortcut>
 
     <shortcut
@@ -56,9 +56,9 @@
         android:shortcutShortLabel="@string/shortcut_insights"
         android:shortcutLongLabel="@string/shortcut_insights_long">
         <intent
-            android:action="dev.lostf1sh.syncthing.shortcut.INSIGHTS"
+            android:action="dev.sirulex.syncthing.shortcut.INSIGHTS"
             android:targetPackage="dev.sirulex.syncthing"
-            android:targetClass="dev.lostf1sh.syncthing.MainActivity" />
+            android:targetClass="dev.sirulex.syncthing.MainActivity" />
     </shortcut>
 
 </shortcuts>
