@@ -1,12 +1,44 @@
 <div align="center">
 
+
+# Material Syncthing: A modern, beautiful Android client for [Syncthing](https://syncthing.net/)
+Thanks for the great work regarding the UI @lostf1sh. The main goal of this [fork](https://github.com/lostf1sh/material-syncthing) is to provide a more stable and reliable experience for users, while also adding new features and enhancements.
+
+
+[![Build](https://img.shields.io/badge/build-passing-4ade80?logo=github)](https://github.com/sirulex/material-syncthing/actions)
+[![License](https://img.shields.io/badge/license-MPL--2.0-f59e0b?logo=mozilla)](LICENSE)
+[![Min SDK](https://img.shields.io/badge/minSdk-28(API%2028)-3b82f6?logo=android)](https://developer.android.com/about/versions/9)
+[![Target SDK](https://img.shields.io/badge/targetSdk-35(API%2035)-8b5cf6?logo=android)](https://developer.android.com/about/versions/15)
+[![Compose](https://img.shields.io/badge/Jetpack%20Compose-2026.03.00-4285f4?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
+
+<p align="center">
+  <img src=".github/screenshots/home_light.png" width="200" alt="Home"/>
+  <img src=".github/screenshots/folders_light.png" width="200" alt="Folders"/>
+  <img src=".github/screenshots/devices_light.png" width="200" alt="Devices"/>
+  <img src=".github/screenshots/settings_light.png" width="200" alt="Settings"/>
+</p>
+
+<p align="center">
+  <img src=".github/screenshots/home_dark.png" width="200" alt="Home Dark"/>
+  <img src=".github/screenshots/folder_detail_dark.png" width="200" alt="Folder Detail Dark"/>
+  <img src=".github/screenshots/insights_dark.png" width="200" alt="Insights Dark"/>
+  <img src=".github/screenshots/add_device_dark.png" width="200" alt="Add Device Dark"/>
+</p>
+
+</div>
+
 ---
+
 
 ## What is this?
 
 Material Syncthing is a ground-up rebuild of the Syncthing Android client, written in **Kotlin** with **Jetpack Compose** and **Material 3 Expressive**. It replaces the legacy View/XML UI with a modern, fluid interface built for Android 9+.
 
 Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfriend1/syncthing-android), this project strips away the Java/XML legacy in favor of coroutines, Flow, and Compose — end to end.
+
+---
+## Download the latest release from [GitHub Releases](https://github.com/sirulex/material-syncthing/releases)
+Best add it to [Obtainium](https://github.com/ImranR98/Obtainium) for automatic updates. If you want to build from source, see the [Build](#build) section below.
 
 ---
 
@@ -139,7 +171,6 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 
 ## Known follow-up work
 
-- Native Syncthing binaries are intentionally not committed. A release pipeline still needs to run `core-native/build-syncthing.sh` for all supported ABIs before packaging.
 - Configuration backups restore app preferences, folders, devices, and Syncthing options on the same device. Device identity (`cert.pem` / `key.pem`) migration is intentionally not implemented.
 - Android cloud document providers do not expose filesystem paths usable by the native Syncthing process. Primary storage and UUID-based removable volumes are supported; virtual providers would require a separate copy/cache layer.
 - External file versioning requires an executable command supplied by the user and still needs device-specific validation on Android.
@@ -150,4 +181,4 @@ Originally ported from [Catfriend1/syncthing-android](https://github.com/Catfrie
 
 [MPL-2.0](LICENSE). See [NOTICE](NOTICE) for upstream attribution.
 
-This project is a derivative of [Catfriend1/syncthing-android](https://github.com/Catfriend1/syncthing-android), rebuilt with Compose and modern Android architecture.
+This project is a derivative of [Catfriend1/syncthing-android](https://github.com/Catfriend1/syncthing-android) and fork of [lostf1sh/material-syncthing](https://github.com/lostf1sh/material-syncthing), rebuilt with Compose and modern Android architecture.
