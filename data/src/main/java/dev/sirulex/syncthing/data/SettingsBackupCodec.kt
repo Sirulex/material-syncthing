@@ -31,6 +31,7 @@ object SettingsBackupCodec {
         "notify_sync_complete",
         "notify_device_connected",
         "notify_errors",
+        "hide_syncing_card",
         "scheduler_enabled",
         "biometric_enabled",
         "start_suppressed_by_user",

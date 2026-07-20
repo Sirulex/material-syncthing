@@ -403,6 +403,7 @@ class CollectorManager(
                 folderStates = appState.folderStates.value,
                 folderStatuses = statuses,
                 folderCompletions = completions,
+                deviceConnections = appState.deviceConnections.value,
                 deviceCount = devices.size,
                 connectedDevices = appState.deviceConnections.value.count { it.value },
             )

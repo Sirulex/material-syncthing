@@ -15,6 +15,7 @@ class SettingsBackupCodecTest {
                 "theme" to JsonPrimitive("dark"),
                 "gui_port" to JsonPrimitive(8384),
                 "folder_conditions" to JsonPrimitive("{}"),
+                "hide_syncing_card" to JsonPrimitive(true),
             )
         )
 

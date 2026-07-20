@@ -135,6 +135,8 @@ fun AppNavigation(
     val folderConditionsRaw by container.settingsStore.folderConditions.collectAsStateWithLifecycle(initialValue = "{}")
     val folderConditions = remember(folderConditionsRaw) { parseFolderConditions(folderConditionsRaw) }
     val theme by container.settingsStore.theme.collectAsStateWithLifecycle(initialValue = "system")
+    val hideSyncingCard by container.settingsStore.hideSyncingCard
+        .collectAsStateWithLifecycle(initialValue = false)
     // Collect continuously so that enabling/disabling biometric in Settings
     // takes effect immediately without requiring an app restart.
     val biometricEnabledState by container.settingsStore.biometricEnabled
@@ -380,6 +382,7 @@ fun AppNavigation(
                 bandwidth = bandwidth,
                 onInsightsClick = { navigateOnce(InsightsRoute) },
                 onRecentChangesClick = { navigateOnce(RecentChangesRoute) },
+                hideSyncingCard = hideSyncingCard,
             )
         }
         composable<QrScannerRoute> {

@@ -105,6 +105,7 @@ fun HomeScreen(
     onRecentChangesClick: () -> Unit = {},
     onTogglePauseFolder: ((String, Boolean) -> Unit)? = null,
     onTogglePauseDevice: ((String, Boolean) -> Unit)? = null,
+    hideSyncingCard: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val state by SyncthingService.state.collectAsStateWithLifecycle()
@@ -126,12 +127,6 @@ fun HomeScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = onShowDeviceCode,
-                        shapes = IconButtonDefaults.shapes(),
-                    ) {
-                        Icon(Icons.Default.QrCode, contentDescription = stringResource(R.string.cd_show_device_code))
-                    }
-                    IconButton(
                         onClick = if (daemonActive) onStopSyncthing else onStartSyncthing,
                         shapes = IconButtonDefaults.shapes(),
                     ) {
@@ -141,6 +136,12 @@ fun HomeScreen(
                                 if (daemonActive) R.string.cd_stop_syncthing else R.string.cd_start_syncthing,
                             ),
                         )
+                    }
+                    IconButton(
+                        onClick = onShowDeviceCode,
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        Icon(Icons.Default.QrCode, contentDescription = stringResource(R.string.cd_show_device_code))
                     }
                     // Expressive: IconButton with animated shapes
                     IconButton(
@@ -178,6 +179,7 @@ fun HomeScreen(
                     0 -> OverviewTab(
                         health = health,
                         bandwidth = bandwidth,
+                        hideSyncingCard = hideSyncingCard,
                         onOverviewClick = onOverviewClick,
                         onInsightsClick = onInsightsClick,
                         onRecentChangesClick = onRecentChangesClick,
@@ -355,6 +357,7 @@ private fun ExpressiveHomeTab(
 private fun OverviewTab(
     health: SyncHealth?,
     bandwidth: List<BandwidthSample>,
+    hideSyncingCard: Boolean,
     onOverviewClick: () -> Unit,
     onInsightsClick: () -> Unit,
     onRecentChangesClick: () -> Unit,
@@ -376,7 +379,9 @@ private fun OverviewTab(
                 onClick = onInsightsClick,
             )
             RecentChangesCard(onClick = onRecentChangesClick)
-            HealthBanner(health = health)
+            if (!hideSyncingCard) {
+                HealthBanner(health = health)
+            }
         } else {
             Text(
                 text = stringResource(R.string.starting_syncthing),

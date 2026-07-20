@@ -97,7 +97,7 @@ class HealthAggregatorTest {
     }
 
     @Test
-    fun `remote incomplete folder sets status to syncing`() {
+    fun `stale remote completion does not keep idle folder syncing`() {
         val folder = Folder(id = "f1")
         val health = HealthAggregator.aggregate(
             folders = listOf(folder),
@@ -108,13 +108,94 @@ class HealthAggregatorTest {
                     completion = 0.1,
                     needBytes = 14_000_000_000,
                     needItems = 712,
+                    remoteState = "idle",
                 )
             ),
+            deviceConnections = mapOf("device-a" to true),
+            deviceCount = 2,
+            connectedDevices = 1,
+        )
+        assertThat(health.overall).isEqualTo(SyncHealth.Status.UP_TO_DATE)
+        assertThat(health.syncingFolders).isEqualTo(0)
+    }
+
+    @Test
+    fun `actively syncing remote folder sets status to syncing`() {
+        val folder = Folder(id = "f1")
+        val health = HealthAggregator.aggregate(
+            folders = listOf(folder),
+            folderStates = mapOf("f1" to "idle"),
+            folderStatuses = mapOf("f1" to FolderStatus(state = "idle")),
+            folderCompletions = mapOf(
+                "f1:device-a" to FolderCompletionInfo(
+                    completion = 75.0,
+                    needBytes = 1_000,
+                    needItems = 2,
+                    remoteState = "syncing",
+                )
+            ),
+            deviceConnections = mapOf("device-a" to true),
             deviceCount = 2,
             connectedDevices = 1,
         )
         assertThat(health.overall).isEqualTo(SyncHealth.Status.SYNCING)
         assertThat(health.syncingFolders).isEqualTo(1)
+    }
+
+    @Test
+    fun `disconnected remote state does not keep folder syncing`() {
+        val folder = Folder(id = "f1")
+        val health = HealthAggregator.aggregate(
+            folders = listOf(folder),
+            folderStates = mapOf("f1" to "idle"),
+            folderStatuses = mapOf("f1" to FolderStatus(state = "idle")),
+            folderCompletions = mapOf(
+                "f1:device-a" to FolderCompletionInfo(
+                    completion = 75.0,
+                    remoteState = "syncing",
+                )
+            ),
+            deviceConnections = mapOf("device-a" to false),
+            deviceCount = 2,
+            connectedDevices = 0,
+        )
+        assertThat(health.overall).isEqualTo(SyncHealth.Status.UP_TO_DATE)
+        assertThat(health.syncingFolders).isEqualTo(0)
+    }
+
+    @Test
+    fun `completed remote folder is up to date even before remote state settles`() {
+        val folder = Folder(id = "f1")
+        val health = HealthAggregator.aggregate(
+            folders = listOf(folder),
+            folderStates = mapOf("f1" to "idle"),
+            folderStatuses = mapOf("f1" to FolderStatus(state = "idle")),
+            folderCompletions = mapOf(
+                "f1:device-a" to FolderCompletionInfo(
+                    completion = 100.0,
+                    remoteState = "syncing",
+                )
+            ),
+            deviceConnections = mapOf("device-a" to true),
+            deviceCount = 2,
+            connectedDevices = 1,
+        )
+        assertThat(health.overall).isEqualTo(SyncHealth.Status.UP_TO_DATE)
+        assertThat(health.syncingFolders).isEqualTo(0)
+    }
+
+    @Test
+    fun `fresh folder status wins over stale event state`() {
+        val folder = Folder(id = "f1")
+        val health = HealthAggregator.aggregate(
+            folders = listOf(folder),
+            folderStates = mapOf("f1" to "syncing"),
+            folderStatuses = mapOf("f1" to FolderStatus(state = "idle")),
+            deviceCount = 1,
+            connectedDevices = 1,
+        )
+        assertThat(health.overall).isEqualTo(SyncHealth.Status.UP_TO_DATE)
+        assertThat(health.syncingFolders).isEqualTo(0)
     }
 
     @Test

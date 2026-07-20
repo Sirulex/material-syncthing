@@ -36,6 +36,7 @@ data class SettingsUiState(
     val notifyErrors: Boolean = true,
     val theme: String = "system",
     val biometricEnabled: Boolean = false,
+    val hideSyncingCard: Boolean = false,
 )
 
 class SettingsStore(private val context: Context) {
@@ -58,6 +59,7 @@ class SettingsStore(private val context: Context) {
 
     // Appearance
     val theme: Flow<String> = pref(Keys.THEME, "system")
+    val hideSyncingCard: Flow<Boolean> = pref(Keys.HIDE_SYNCING_CARD, false)
 
     // Sync profiles
     val activeProfile: Flow<String> = pref(Keys.ACTIVE_PROFILE, "default")
@@ -93,6 +95,7 @@ class SettingsStore(private val context: Context) {
             notifyErrors = prefs[Keys.NOTIFY_ERRORS] ?: true,
             theme = prefs[Keys.THEME] ?: "system",
             biometricEnabled = prefs[Keys.BIOMETRIC_ENABLED] ?: false,
+            hideSyncingCard = prefs[Keys.HIDE_SYNCING_CARD] ?: false,
         )
     }
 
@@ -107,6 +110,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setNotifyDeviceConnected(value: Boolean) = set(Keys.NOTIFY_DEVICE_CONNECTED, value)
     suspend fun setNotifyErrors(value: Boolean) = set(Keys.NOTIFY_ERRORS, value)
     suspend fun setTheme(value: String) = set(Keys.THEME, value)
+    suspend fun setHideSyncingCard(value: Boolean) = set(Keys.HIDE_SYNCING_CARD, value)
     suspend fun setActiveProfile(value: String) = set(Keys.ACTIVE_PROFILE, value)
     suspend fun setGuiPort(value: Int) = set(Keys.GUI_PORT, value)
     suspend fun setBiometricEnabled(value: Boolean) = set(Keys.BIOMETRIC_ENABLED, value)
@@ -154,6 +158,7 @@ class SettingsStore(private val context: Context) {
         val NOTIFY_DEVICE_CONNECTED = booleanPreferencesKey("notify_device_connected")
         val NOTIFY_ERRORS = booleanPreferencesKey("notify_errors")
         val THEME = stringPreferencesKey("theme")
+        val HIDE_SYNCING_CARD = booleanPreferencesKey("hide_syncing_card")
         val ACTIVE_PROFILE = stringPreferencesKey("active_profile")
         val GUI_PORT = intPreferencesKey("gui_port")
         val SCHEDULER_ENABLED = booleanPreferencesKey("scheduler_enabled")
@@ -184,6 +189,7 @@ class SettingsStore(private val context: Context) {
             put("notify_device_connected", JsonPrimitive(prefs[Keys.NOTIFY_DEVICE_CONNECTED] ?: false))
             put("notify_errors", JsonPrimitive(prefs[Keys.NOTIFY_ERRORS] ?: true))
             put("theme", JsonPrimitive(prefs[Keys.THEME] ?: "system"))
+            put("hide_syncing_card", JsonPrimitive(prefs[Keys.HIDE_SYNCING_CARD] ?: false))
             put("active_profile", JsonPrimitive(prefs[Keys.ACTIVE_PROFILE] ?: "default"))
             put("gui_port", JsonPrimitive(prefs[Keys.GUI_PORT] ?: 8384))
             put("scheduler_enabled", JsonPrimitive(prefs[Keys.SCHEDULER_ENABLED] ?: false))
@@ -219,6 +225,9 @@ class SettingsStore(private val context: Context) {
             }
             obj["notify_errors"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.NOTIFY_ERRORS] = it; applied() }
             obj["theme"]?.jsonPrimitive?.contentOrNull?.let { prefs[Keys.THEME] = it; applied() }
+            obj["hide_syncing_card"]?.jsonPrimitive?.booleanOrNull?.let {
+                prefs[Keys.HIDE_SYNCING_CARD] = it; applied()
+            }
             obj["active_profile"]?.jsonPrimitive?.contentOrNull?.let { prefs[Keys.ACTIVE_PROFILE] = it; applied() }
             obj["gui_port"]?.jsonPrimitive?.intOrNull?.let { prefs[Keys.GUI_PORT] = it; applied() }
             obj["scheduler_enabled"]?.jsonPrimitive?.booleanOrNull?.let { prefs[Keys.SCHEDULER_ENABLED] = it; applied() }

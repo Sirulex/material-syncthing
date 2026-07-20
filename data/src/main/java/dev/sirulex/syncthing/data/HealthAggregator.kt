@@ -16,22 +16,31 @@ object HealthAggregator {
         folderStates: Map<String, String>,
         folderStatuses: Map<String, FolderStatus>,
         folderCompletions: Map<String, FolderCompletionInfo> = emptyMap(),
+        deviceConnections: Map<String, Boolean> = emptyMap(),
         deviceCount: Int,
         connectedDevices: Int,
     ): SyncHealth {
         val issues = mutableListOf<SyncIssue>()
         var syncing = 0
+        var scanning = 0
         var errors = 0
         var paused = 0
 
         for (folder in folders) {
-            val state = folderStates[folder.id] ?: "unknown"
             val status = folderStatuses[folder.id]
+            val state = status?.state?.takeIf { it.isNotBlank() }
+                ?: folderStates[folder.id]
+                ?: "unknown"
 
+            val completionKeyPrefix = "${folder.id}:"
             val remoteSyncing = folderCompletions
-                .filterKeys { it.startsWith("${folder.id}:") }
-                .values
-                .any { it.isIncomplete() }
+                .filterKeys { it.startsWith(completionKeyPrefix) }
+                .any { (key, completion) ->
+                    val deviceId = key.removePrefix(completionKeyPrefix)
+                    deviceConnections[deviceId] == true &&
+                        completion.remoteState.equals("syncing", ignoreCase = true) &&
+                        completion.isIncomplete()
+                }
 
             when {
                 folder.paused -> paused++
@@ -45,6 +54,7 @@ object HealthAggregator {
                     )
                 }
                 state == "syncing" || remoteSyncing -> syncing++
+                state == "scanning" -> scanning++
             }
 
             if (status != null && status.pullErrors > 0) {
@@ -61,7 +71,7 @@ object HealthAggregator {
             errors > 0 -> SyncHealth.Status.ERROR
             syncing > 0 -> SyncHealth.Status.SYNCING
             paused == folders.size && folders.isNotEmpty() -> SyncHealth.Status.PAUSED
-            folders.any { folderStates[it.id] == "scanning" } -> SyncHealth.Status.SCANNING
+            scanning > 0 -> SyncHealth.Status.SCANNING
             else -> SyncHealth.Status.UP_TO_DATE
         }
 

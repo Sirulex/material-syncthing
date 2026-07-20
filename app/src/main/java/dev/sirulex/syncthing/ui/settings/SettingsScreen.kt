@@ -411,7 +411,10 @@ fun SettingsScreen(
             }
 
             // --- Appearance ---
-            if (queryTrimmed.isBlank() || "theme dark light appearance".contains(queryTrimmed, ignoreCase = true)) {
+            if (
+                queryTrimmed.isBlank() ||
+                "theme dark light appearance hide syncing card".contains(queryTrimmed, ignoreCase = true)
+            ) {
                 item(key = "appearance") {
                     SectionHeader("Appearance")
                     SectionCard {
@@ -424,6 +427,13 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        HorizontalDivider()
+                        SettingsSwitch(
+                            title = "Hide syncing card",
+                            description = "Hide the status card below Recent Changes",
+                            checked = settings.hideSyncingCard,
+                            onCheckedChange = { scope.launch { settingsStore.setHideSyncingCard(it) } },
+                        )
                     }
                 }
             }
