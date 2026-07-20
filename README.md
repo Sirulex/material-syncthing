@@ -147,17 +147,6 @@ Best add it to [Obtainium](https://github.com/ImranR98/Obtainium) for automatic 
 
 ---
 
-## Screenshots
-
-> To generate screenshots, run the app on an emulator or device and capture the following flows:
->
-> - **Light**: Home overview → Folders list → Devices list → Settings
-> - **Dark**: Home overview → Folder detail → Insights → Add device
->
-> Save them to `.github/screenshots/` as `home_light.png`, `folders_light.png`, etc.
-
----
-
 ## Permissions
 
 - `INTERNET` — Syncthing REST API
