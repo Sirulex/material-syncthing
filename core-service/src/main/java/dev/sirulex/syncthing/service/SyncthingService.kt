@@ -52,6 +52,8 @@ class SyncthingService : Service() {
     private var syncthingJob: Job? = null
     private var constraintJob: Job? = null
     @Volatile
+    private var pauseInProgress = false
+    @Volatile
     private var pausedByConstraint = false
     @Volatile
     private var requestedPauseReason: String? = null
@@ -86,10 +88,18 @@ class SyncthingService : Service() {
                     }
 
                     is SyncConstraints.ConstraintState.ShouldRun -> {
-                        if (pausedByConstraint && !launcher.isRunning) {
-                            Log.i(TAG, "Constraints satisfied; auto-resume")
+                        if (pausedByConstraint) {
+                            Log.i(TAG, "Constraints satisfied; requesting auto-resume")
                             pausedByConstraint = false
-                            startSyncthing()
+                            // If the constraint pause has already stopped the
+                            // process we can resume immediately. Otherwise the
+                            // in-flight pause observes pausedByConstraint=false
+                            // after launcher.stop() and performs the restart.
+                            if (!pauseInProgress && !launcher.isRunning) {
+                                requestedPauseReason = null
+                                syncthingJob = null
+                                startSyncthing()
+                            }
                         }
                     }
                 }
@@ -222,7 +232,8 @@ class SyncthingService : Service() {
             }
             try {
                 // Bootstrap config on first run
-                if (!bootstrapper.configExists) {
+                val generatedConfig = !bootstrapper.configExists
+                if (generatedConfig) {
                     Log.i(TAG, "First run — generating config")
                     launcher.generateConfig()
                 }
@@ -244,7 +255,11 @@ class SyncthingService : Service() {
                     Log.w(TAG, "Could not read preferred device name", e)
                     null
                 }
-                bootstrapper.patchConfig(deviceId, preferredDeviceName)
+                bootstrapper.patchConfig(
+                    localDeviceId = deviceId,
+                    preferredDeviceName = preferredDeviceName,
+                    forcePreferredDeviceName = generatedConfig,
+                )
 
                 val apiKey = bootstrapper.readApiKey()
                 val port = bootstrapper.readGuiPort()
@@ -369,17 +384,33 @@ class SyncthingService : Service() {
 
     private fun pauseSyncthing(reason: String, suppressFutureAutoStarts: Boolean = false) {
         serviceScope.launch {
-            requestedPauseReason = reason
-            if (suppressFutureAutoStarts) {
-                settings.setStartSuppressedByUser(true)
+            pauseInProgress = true
+            try {
+                requestedPauseReason = reason
+                if (suppressFutureAutoStarts) {
+                    settings.setStartSuppressedByUser(true)
+                }
+                if (launcher.isRunning) {
+                    launcher.stop()
+                }
+                syncthingJob?.cancel()
+                syncthingJob = null
+                requestedPauseReason = null
+
+                // A network hand-off can satisfy the constraints again while
+                // launcher.stop() is still waiting for the old process. Do not
+                // lose that edge: resume as soon as the pause operation finishes.
+                if (shouldResumeAfterPause(suppressFutureAutoStarts, pausedByConstraint)) {
+                    Log.i(TAG, "Constraint pause completed after constraints recovered; auto-resuming")
+                    startSyncthing()
+                } else {
+                    val paused = RunState.Paused(reason)
+                    _state.value = paused
+                    updateNotification(paused)
+                }
+            } finally {
+                pauseInProgress = false
             }
-            if (launcher.isRunning) {
-                launcher.stop()
-            }
-            syncthingJob?.cancel()
-            syncthingJob = null
-            _state.value = RunState.Paused(reason)
-            updateNotification(RunState.Paused(reason))
         }
     }
 
@@ -401,3 +432,8 @@ class SyncthingService : Service() {
         nm.notify(NotificationController.ID_PERSISTENT, notification)
     }
 }
+
+internal fun shouldResumeAfterPause(
+    suppressFutureAutoStarts: Boolean,
+    pausedByConstraint: Boolean,
+): Boolean = !suppressFutureAutoStarts && !pausedByConstraint

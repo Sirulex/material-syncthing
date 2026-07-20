@@ -21,7 +21,8 @@ import javax.xml.transform.stream.StreamResult
  * - GUI binds to 127.0.0.1:8384
  * - startBrowser = false
  * - ignorePerms = true on all folders
- * - Unnamed local device named after Build.MODEL
+ * - Local device named from onboarding on first generation, otherwise
+ *   unnamed devices fall back to Build.MODEL
  *
  * @param configDir The STHOMEDIR directory containing config.xml
  */
@@ -67,7 +68,11 @@ class ConfigBootstrapper(private val configDir: File) {
      * Patches config.xml after initial generation.
      * Catfriend1 does this in ConfigXml.generateConfig() and updateIfNeeded().
      */
-    fun patchConfig(localDeviceId: String?, preferredDeviceName: String? = null) {
+    fun patchConfig(
+        localDeviceId: String?,
+        preferredDeviceName: String? = null,
+        forcePreferredDeviceName: Boolean = false,
+    ) {
         if (!configFile.exists()) {
             Log.w(TAG, "Config file missing, cannot patch")
             return
@@ -117,14 +122,17 @@ class ConfigBootstrapper(private val configDir: File) {
                     val element = node as org.w3c.dom.Element
                     if (element.getAttribute("id") == localDeviceId) {
                         val currentName = element.getAttribute("name")
-                        // Apply the onboarding choice while the generated/model
-                        // default is still in use. A later name changed through
-                        // Syncthing's API must remain authoritative.
+                        // A freshly generated config contains a hostname chosen
+                        // by the native binary, which is not necessarily
+                        // Build.MODEL. During the first start the onboarding
+                        // choice therefore has to win unconditionally. On later
+                        // starts a name changed through Syncthing's API remains
+                        // authoritative.
                         val preferred = preferredDeviceName?.trim().orEmpty()
                         val generatedDefault = Build.MODEL.orEmpty()
                         val nextName = when {
                             preferred.isNotBlank() &&
-                                (currentName.isBlank() || currentName == generatedDefault) -> preferred
+                                (forcePreferredDeviceName || currentName.isBlank() || currentName == generatedDefault) -> preferred
                             currentName.isBlank() && generatedDefault.isNotBlank() -> generatedDefault
                             else -> null
                         }

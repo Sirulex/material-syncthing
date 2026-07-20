@@ -1,5 +1,9 @@
 package dev.sirulex.syncthing.ui.settings
 
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -42,6 +46,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,12 +54,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import dev.sirulex.syncthing.data.SettingsStore
 import dev.sirulex.syncthing.data.SettingsUiState
 import dev.sirulex.syncthing.BuildConfig
+import dev.sirulex.syncthing.service.NotificationController
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -85,6 +94,22 @@ fun SettingsScreen(
     var showEndPicker by remember { mutableStateOf(false) }
     var pendingConfigurationRestore by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    var persistentNotificationEnabled by remember(context) {
+        mutableStateOf(isPersistentNotificationEnabled(context))
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // The actual switch belongs to Android's notification channel settings.
+    // Refresh it when returning from that system screen.
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                persistentNotificationEnabled = isPersistentNotificationEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -278,10 +303,20 @@ fun SettingsScreen(
             }
 
             // --- Notifications ---
-            if (queryTrimmed.isBlank() || "notification".contains(queryTrimmed, ignoreCase = true)) {
+            if (
+                queryTrimmed.isBlank() ||
+                "notification persistent service status".contains(queryTrimmed, ignoreCase = true)
+            ) {
                 item(key = "notifications") {
                     SectionHeader("Notifications")
                     SectionCard {
+                        SettingsSwitch(
+                            title = "Persistent service notification",
+                            description = "Required for background sync; tap to show or hide it in Android settings",
+                            checked = persistentNotificationEnabled,
+                            onCheckedChange = { openPersistentNotificationSettings(context) },
+                        )
+                        HorizontalDivider()
                         SettingsSwitch(
                             title = "Sync complete",
                             description = "Notify when folder finishes syncing",
@@ -627,6 +662,52 @@ private fun SchedulerTimePickerDialog(
 }
 
 private fun formatClock(hour: Int, minute: Int): String = "%02d:%02d".format(hour, minute)
+
+private fun isPersistentNotificationEnabled(context: Context): Boolean {
+    val notificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val channelBlocked = notificationManager
+        .getNotificationChannel(NotificationController.CHANNEL_PERSISTENT)
+        ?.importance == NotificationManager.IMPORTANCE_NONE
+    return persistentNotificationIsEnabled(
+        appNotificationsEnabled = notificationManager.areNotificationsEnabled(),
+        channelBlocked = channelBlocked,
+    )
+}
+
+internal fun persistentNotificationIsEnabled(
+    appNotificationsEnabled: Boolean,
+    channelBlocked: Boolean,
+): Boolean = appNotificationsEnabled && !channelBlocked
+
+private fun openPersistentNotificationSettings(context: Context) {
+    val notificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val channelExists = notificationManager
+        .getNotificationChannel(NotificationController.CHANNEL_PERSISTENT) != null
+    val intent = if (notificationManager.areNotificationsEnabled() && channelExists) {
+        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            putExtra(Settings.EXTRA_CHANNEL_ID, NotificationController.CHANNEL_PERSISTENT)
+        }
+    } else {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        }
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = android.net.Uri.fromParts("package", context.packageName, null)
+        }
+        try {
+            context.startActivity(fallbackIntent)
+        } catch (_: Exception) {
+            // No compatible system settings activity available.
+        }
+    }
+}
 
 private suspend fun <T> cancellationSafeResult(block: suspend () -> T): Result<T> = try {
     Result.success(block())

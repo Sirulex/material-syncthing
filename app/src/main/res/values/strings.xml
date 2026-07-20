@@ -91,6 +91,8 @@
     <string name="cd_back">Back</string>
     <string name="cd_settings">Settings</string>
     <string name="cd_show_device_code">Show device code</string>
+    <string name="cd_start_syncthing">Start Syncthing</string>
+    <string name="cd_stop_syncthing">Stop Syncthing</string>
     <string name="cd_qr_code">QR code for device ID</string>
     <string name="cd_add_folder">Add folder</string>
     <string name="cd_add_device">Add device</string>

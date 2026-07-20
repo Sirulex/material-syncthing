@@ -19,7 +19,7 @@ class NotificationController(private val context: Context) {
     companion object {
         const val ID_PERSISTENT = 1
         private const val ID_CRASH = 9
-        private const val CHANNEL_PERSISTENT = "syncthing_persistent"
+        const val CHANNEL_PERSISTENT = "syncthing_persistent"
         private const val CHANNEL_INFO = "syncthing_info"
         const val CHANNEL_EVENTS = "syncthing_events"
     }

@@ -211,7 +211,12 @@ class SyncConstraints(private val context: Context) {
             }
 
             override fun onLost(network: Network) {
-                trySend(NetworkState(connected = false))
+                // During a default-network hand-off Android may report the old
+                // network as lost after the replacement is already active.
+                // Re-read the current default instead of blindly publishing
+                // "disconnected", which could otherwise leave the constraint
+                // state paused until another capability change happens.
+                trySend(currentNetworkState(cm))
             }
         }
 
@@ -223,19 +228,7 @@ class SyncConstraints(private val context: Context) {
 
         // Seed an initial state from the current default, since the first
         // callback is asynchronous.
-        val activeNetwork = cm.activeNetwork
-        val activeCaps = activeNetwork?.let { cm.getNetworkCapabilities(it) }
-        send(
-            if (activeCaps != null) {
-                NetworkState(
-                    connected = true,
-                    isWifi = activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
-                    isMetered = !activeCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
-                )
-            } else {
-                NetworkState(connected = false)
-            }
-        )
+        send(currentNetworkState(cm))
 
         awaitClose { cm.unregisterNetworkCallback(callback) }
     }
@@ -279,6 +272,17 @@ class SyncConstraints(private val context: Context) {
             }
         }
     }.distinctUntilChanged()
+
+    private fun currentNetworkState(cm: ConnectivityManager): NetworkState {
+        val activeNetwork = cm.activeNetwork ?: return NetworkState(connected = false)
+        val activeCaps = cm.getNetworkCapabilities(activeNetwork)
+            ?: return NetworkState(connected = false)
+        return NetworkState(
+            connected = true,
+            isWifi = activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+            isMetered = !activeCaps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+        )
+    }
 
     private fun observeCurrentMinuteOfDay(): Flow<Int> = flow {
         while (currentCoroutineContext().isActive) {

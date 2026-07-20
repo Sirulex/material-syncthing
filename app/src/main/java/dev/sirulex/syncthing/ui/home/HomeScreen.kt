@@ -27,7 +27,9 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,6 +66,7 @@ import dev.sirulex.syncthing.api.dto.Folder
 import dev.sirulex.syncthing.api.dto.FolderStatus
 import dev.sirulex.syncthing.data.model.BandwidthSample
 import dev.sirulex.syncthing.data.model.SyncHealth
+import dev.sirulex.syncthing.native.RunState
 import dev.sirulex.syncthing.service.SyncthingService
 import dev.sirulex.syncthing.ui.core.displayColor
 import dev.sirulex.syncthing.ui.core.displayLabelWithReason
@@ -89,6 +92,8 @@ fun HomeScreen(
     onAddDevice: () -> Unit,
     onScanQr: () -> Unit,
     onShowDeviceCode: () -> Unit = {},
+    onStartSyncthing: () -> Unit = {},
+    onStopSyncthing: () -> Unit = {},
     onSettingsClick: () -> Unit,
     onOverviewClick: () -> Unit = {},
     onRefresh: (suspend () -> Unit)? = null,
@@ -103,6 +108,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by SyncthingService.state.collectAsStateWithLifecycle()
+    val daemonActive = state is RunState.Running || state is RunState.Starting
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -124,6 +130,17 @@ fun HomeScreen(
                         shapes = IconButtonDefaults.shapes(),
                     ) {
                         Icon(Icons.Default.QrCode, contentDescription = stringResource(R.string.cd_show_device_code))
+                    }
+                    IconButton(
+                        onClick = if (daemonActive) onStopSyncthing else onStartSyncthing,
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        Icon(
+                            imageVector = if (daemonActive) Icons.Default.Stop else Icons.Default.PlayArrow,
+                            contentDescription = stringResource(
+                                if (daemonActive) R.string.cd_stop_syncthing else R.string.cd_start_syncthing,
+                            ),
+                        )
                     }
                     // Expressive: IconButton with animated shapes
                     IconButton(

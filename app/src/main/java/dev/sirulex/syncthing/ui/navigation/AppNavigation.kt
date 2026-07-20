@@ -77,6 +77,7 @@ import dev.sirulex.syncthing.ui.settings.ProfilesScreen
 import dev.sirulex.syncthing.ui.settings.SettingsScreen
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 internal fun nextPendingFolderOffer(
     pendingFolders: Map<String, PendingFolder>,
@@ -106,6 +107,7 @@ fun AppNavigation(
     val scope = rememberCoroutineScope()
     val serviceState by SyncthingService.state.collectAsStateWithLifecycle()
     val app = LocalContext.current.applicationContext as SyncthingApp
+    val context = LocalContext.current
     val container = app.container
     val appState = container.appState
     val onboardingDone by container.settingsStore.onboardingComplete
@@ -304,6 +306,7 @@ fun AppNavigation(
             OnboardingScreen(
                 settingsStore = container.settingsStore,
                 onComplete = {
+                    startSyncthingService(context)
                     navController.navigate(HomeRoute) {
                         popUpTo(OnboardingRoute) { inclusive = true }
                     }
@@ -325,6 +328,8 @@ fun AppNavigation(
                 onAddDevice = { navigateOnce(AddDeviceRoute()) },
                 onScanQr = { navigateOnce(QrScannerRoute) },
                 onShowDeviceCode = { showLocalDeviceCode = true },
+                onStartSyncthing = { startSyncthingService(context) },
+                onStopSyncthing = { stopSyncthingService(context) },
                 onSettingsClick = { navigateOnce(SettingsRoute) },
                 onOverviewClick = { navigateOnce(DiagnosticsRoute) },
                 onTogglePauseFolder = { folderId, paused ->
@@ -1137,6 +1142,23 @@ fun AppNavigation(
             BatteryWizardScreen(onBack = { navController.popBackStack() })
         }
     }
+}
+
+private fun startSyncthingService(context: Context) {
+    val intent = android.content.Intent(context, SyncthingService::class.java).apply {
+        action = SyncthingService.ACTION_START
+    }
+    ContextCompat.startForegroundService(context, intent)
+}
+
+private fun stopSyncthingService(context: Context) {
+    val intent = android.content.Intent(context, SyncthingService::class.java).apply {
+        action = SyncthingService.ACTION_STOP
+    }
+    // The stop control is only shown for an active/starting daemon, so the
+    // service is already foreground and this does not cold-start a background
+    // service merely to stop it.
+    context.startService(intent)
 }
 
 private fun Any.routeKey(): String = this::class.qualifiedName.orEmpty()
